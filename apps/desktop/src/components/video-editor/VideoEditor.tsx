@@ -959,6 +959,7 @@ export default function VideoEditor() {
 				JSON.stringify(projectData),
 				`${fileNameBase}.openrecorder`,
 				forceSaveAs ? undefined : (currentProjectPath ?? undefined),
+				forceSaveAs,
 			);
 
 			if (!savedPath) {
@@ -1038,6 +1039,31 @@ export default function VideoEditor() {
 			toast.error(`Failed to load project: ${String(loadError)}`);
 		}
 	}, [applyLoadedProject, setInternalView]);
+
+	const handleOpenProjectPath = useCallback(
+		async (projectPath: string) => {
+			try {
+				const result = await backend.openProjectAtPath(projectPath);
+
+				if (!result) {
+					toast.error("Project could not be opened");
+					return;
+				}
+
+				const restored = await applyLoadedProject(result.data, result.filePath ?? null);
+				if (!restored) {
+					toast.error("Invalid project file format");
+					return;
+				}
+
+				setInternalView("editor");
+				toast.success(`Project loaded from ${result.filePath}`);
+			} catch (loadError) {
+				toast.error(`Failed to load project: ${String(loadError)}`);
+			}
+		},
+		[applyLoadedProject, setInternalView],
+	);
 
 	useEffect(() => {
 		let unlistenLoad: (() => void) | undefined;
@@ -2315,7 +2341,10 @@ export default function VideoEditor() {
 				/>
 
 				{internalView === "projects" ? (
-					<ProjectsPage onOpenProject={handleLoadProject} />
+					<ProjectsPage
+						onOpenProject={handleLoadProject}
+						onOpenProjectPath={handleOpenProjectPath}
+					/>
 				) : (
 					<div className="relative flex min-h-0 flex-1 gap-4 bg-muted/20 p-4">
 						{/* Left Column - Video & Timeline */}

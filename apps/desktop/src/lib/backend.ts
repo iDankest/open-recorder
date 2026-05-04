@@ -410,8 +410,9 @@ export function saveProjectFile(
 	data: string,
 	suggestedName?: string,
 	existingPath?: string,
+	forceSaveAs?: boolean,
 ): Promise<string | null> {
-	return invoke("save_project_file", { data, suggestedName, existingPath });
+	return invoke("save_project_file", { data, suggestedName, existingPath, forceSaveAs });
 }
 
 export type LoadedProjectFile = {
@@ -419,12 +420,35 @@ export type LoadedProjectFile = {
 	filePath?: string | null;
 } | null;
 
+export interface ProjectListItem {
+	path: string;
+	title: string;
+	recordingPath: string | null;
+	sourceName: string | null;
+	createdAt: string;
+	updatedAt: string;
+	lastOpenedAt: string;
+	missing: boolean;
+}
+
 export function loadProjectFile(): Promise<LoadedProjectFile> {
 	return invoke<LoadedProjectFile>("load_project_file");
 }
 
 export function loadCurrentProjectFile(): Promise<LoadedProjectFile> {
 	return invoke<LoadedProjectFile>("load_current_project_file");
+}
+
+export function listProjects(): Promise<ProjectListItem[]> {
+	return invoke<ProjectListItem[]>("list_projects");
+}
+
+export function openProjectAtPath(path: string): Promise<LoadedProjectFile> {
+	return invoke<LoadedProjectFile>("open_project_at_path", { path });
+}
+
+export function removeProjectFromRecents(path: string): Promise<void> {
+	return invoke("remove_project_from_recents", { path });
 }
 
 // ─── Screenshot ─────────────────────────────────────────────────────────────

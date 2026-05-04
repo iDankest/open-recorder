@@ -149,6 +149,9 @@ export const ELECTRON_SHIM_SCRIPT = /* javascript */ `
     save_project_file: '/tmp/test-project.openrec',
     load_project_file: null,
     load_current_project_file: null,
+    list_projects: [],
+    open_project_at_path: null,
+    remove_project_from_recents: null,
     // Windows-specific
     is_wgc_available: false,
     mux_wgc_recording: '/tmp/test-recording.mp4',
