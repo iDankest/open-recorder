@@ -18,6 +18,7 @@ vi.mock("electron", () => ({
 }));
 
 const tempDirs: string[] = [];
+const cleanups: Array<() => void> = [];
 
 async function makeTempDir() {
 	const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "open-recorder-dialogs-"));
@@ -31,7 +32,7 @@ async function registerHandlers() {
 	const recordingsDir = await makeTempDir();
 	const configDir = await makeTempDir();
 
-	registerDialogHandlers(
+	const cleanup = registerDialogHandlers(
 		(channel, handler) => {
 			handlers.set(channel, handler);
 		},
@@ -40,11 +41,15 @@ async function registerHandlers() {
 		() => recordingsDir,
 		() => configDir,
 	);
+	cleanups.push(cleanup.close);
 
 	return { handlers, state, recordingsDir };
 }
 
 afterEach(async () => {
+	for (const cleanup of cleanups.splice(0)) {
+		cleanup();
+	}
 	for (const dir of tempDirs.splice(0)) {
 		await fs.promises.rm(dir, { recursive: true, force: true });
 	}

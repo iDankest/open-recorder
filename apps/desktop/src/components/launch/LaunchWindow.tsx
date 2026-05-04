@@ -61,6 +61,7 @@ function ModeButton({
 		<Button
 			variant="ghost"
 			onClick={onClick}
+			aria-label={title}
 			title={title}
 			disabled={disabled}
 			className={cn(
@@ -797,6 +798,7 @@ export function LaunchWindow() {
 									size="sm"
 									onClick={handleScreenshotCapture}
 									disabled={isCapturing}
+									aria-label="Take Screenshot"
 									className="hud-no-drag h-10 gap-2 rounded-full border border-blue-200/25 bg-blue-400/15 px-3 text-xs font-semibold text-blue-100 shadow-[0_0_24px_rgba(37,99,235,0.22)] transition-all duration-200 hover:border-blue-100/40 hover:bg-blue-400/25 hover:text-white"
 								>
 									{isCapturing ? (

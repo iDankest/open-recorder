@@ -27,7 +27,7 @@ export function registerDialogHandlers(
 	setState: (updater: (s: AppState) => void) => void,
 	getDefaultRecordingsDir: () => string,
 	getConfigDir: () => string,
-): void {
+): { close: () => void } {
 	let projectLibrary: ProjectLibrary | null = null;
 	const getProjectLibrary = () => {
 		projectLibrary ??= new ProjectLibrary(getConfigDir());
@@ -174,4 +174,11 @@ export function registerDialogHandlers(
 		getProjectLibrary().removeProject(filePath);
 		return null;
 	});
+
+	return {
+		close: () => {
+			projectLibrary?.close();
+			projectLibrary = null;
+		},
+	};
 }
