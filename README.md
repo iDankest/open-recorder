@@ -57,6 +57,14 @@ Run the native app:
 make dev-macos
 ```
 
+Development runs as a separate macOS app:
+
+- `make dev-macos` builds, installs, and launches `/Applications/Open Recorder Dev.app`
+- The development bundle identifier is `dev.openrecorder.app.dev`
+- Production packaging remains `/Applications/Open Recorder.app` with bundle identifier `dev.openrecorder.app`
+
+This keeps development and production installs from sharing macOS app identity, window state, and privacy permission records.
+
 Run verification:
 
 ```bash
