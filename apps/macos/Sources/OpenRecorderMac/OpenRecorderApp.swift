@@ -144,6 +144,7 @@ struct OpenRecorderApp: App {
 
 private struct MenuBarControls: View {
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
@@ -165,10 +166,8 @@ private struct MenuBarControls: View {
 
         Divider()
 
-        Button("Show Recorder") {
-            model.requestWindow(.showHUD)
-            openWindow(id: "hud")
-            NSApp.activate(ignoringOtherApps: true)
+        Button(model.isHUDVisible ? "Hide Recorder" : "Show Recorder") {
+            toggleRecorderHUD()
         }
 
         if let lastEditorSession = model.lastEditorSession {
@@ -190,9 +189,21 @@ private struct MenuBarControls: View {
     private func beginCapture(_ mode: CaptureMode) {
         guard model.canStartNewCapture else { return }
         model.beginCapture(mode)
+        model.showHUD()
         openWindow(id: "source-selector")
         openWindow(id: "hud")
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func toggleRecorderHUD() {
+        if model.isHUDVisible {
+            model.hideHUD()
+            dismissWindow(id: "hud")
+        } else {
+            model.showHUD()
+            openWindow(id: "hud")
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }
 

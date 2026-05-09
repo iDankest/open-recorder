@@ -267,6 +267,8 @@ struct WindowCommandBridge: View {
         switch command.action {
         case .showHUD:
             openWindow(id: "hud")
+        case .hideHUD:
+            dismissWindow(id: "hud")
         case .showSourceSelector:
             openWindow(id: "source-selector")
         case .showAreaSelector:
@@ -325,4 +327,3 @@ struct HUDOverlayWindowView: View {
         .padding(.vertical, 18)
     }
 }
-

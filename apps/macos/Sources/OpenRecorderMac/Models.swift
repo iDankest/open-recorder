@@ -216,7 +216,16 @@ enum CaptureFlow: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum HUDState: Hashable {
+enum HUDPresentationState: Hashable {
+    case visible
+    case hidden
+
+    var isVisible: Bool {
+        self == .visible
+    }
+}
+
+enum HUDPhase: Hashable {
     case idle
     case choosingMode
     case selectingSource(CaptureMode)
@@ -226,9 +235,63 @@ enum HUDState: Hashable {
     case recording(CaptureSource)
     case stoppingRecording(CaptureSource)
     case capturingScreenshot(CaptureSource)
+}
+
+struct HUDState: Hashable {
+    var phase: HUDPhase
+    var presentation: HUDPresentationState
+
+    init(phase: HUDPhase = .choosingMode, presentation: HUDPresentationState = .visible) {
+        self.phase = phase
+        self.presentation = presentation
+    }
+
+    static var idle: HUDState {
+        HUDState(phase: .idle)
+    }
+
+    static var choosingMode: HUDState {
+        HUDState(phase: .choosingMode)
+    }
+
+    static func selectingSource(_ mode: CaptureMode) -> HUDState {
+        HUDState(phase: .selectingSource(mode))
+    }
+
+    static func ready(_ mode: CaptureMode, _ source: CaptureSource) -> HUDState {
+        HUDState(phase: .ready(mode, source))
+    }
+
+    static func areaSelecting(_ mode: CaptureMode) -> HUDState {
+        HUDState(phase: .areaSelecting(mode))
+    }
+
+    static func startingRecording(_ source: CaptureSource) -> HUDState {
+        HUDState(phase: .startingRecording(source))
+    }
+
+    static func recording(_ source: CaptureSource) -> HUDState {
+        HUDState(phase: .recording(source))
+    }
+
+    static func stoppingRecording(_ source: CaptureSource) -> HUDState {
+        HUDState(phase: .stoppingRecording(source))
+    }
+
+    static func capturingScreenshot(_ source: CaptureSource) -> HUDState {
+        HUDState(phase: .capturingScreenshot(source))
+    }
+
+    func withPhase(_ phase: HUDPhase) -> HUDState {
+        HUDState(phase: phase, presentation: presentation)
+    }
+
+    func withPresentation(_ presentation: HUDPresentationState) -> HUDState {
+        HUDState(phase: phase, presentation: presentation)
+    }
 
     var mode: CaptureMode? {
-        switch self {
+        switch phase {
         case .idle, .choosingMode:
             nil
         case .selectingSource(let mode),
@@ -246,7 +309,7 @@ enum HUDState: Hashable {
     }
 
     var source: CaptureSource? {
-        switch self {
+        switch phase {
         case .ready(_, let source),
              .startingRecording(let source),
              .recording(let source),
@@ -262,7 +325,7 @@ enum HUDState: Hashable {
     }
 
     var isCaptureOccupied: Bool {
-        switch self {
+        switch phase {
         case .idle, .choosingMode:
             false
         case .selectingSource,
@@ -277,7 +340,7 @@ enum HUDState: Hashable {
     }
 
     var captureFlow: CaptureFlow {
-        switch self {
+        switch phase {
         case .idle, .choosingMode:
             .choice
         case .selectingSource(let mode),
@@ -296,6 +359,7 @@ enum HUDState: Hashable {
 
 enum NativeWindowCommandAction: Equatable {
     case showHUD
+    case hideHUD
     case showSourceSelector
     case showAreaSelector
     case showStudio

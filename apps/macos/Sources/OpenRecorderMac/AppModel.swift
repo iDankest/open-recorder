@@ -60,6 +60,10 @@ final class AppModel: ObservableObject {
         hudState.captureFlow
     }
 
+    var isHUDVisible: Bool {
+        hudState.presentation.isVisible
+    }
+
     func bootstrap() {
         Task {
             await refreshSources()
@@ -114,9 +118,9 @@ final class AppModel: ObservableObject {
 
         captureMode = mode
         if let selectedSource {
-            hudState = .ready(mode, selectedSource)
+            setHUDPhase(.ready(mode, selectedSource))
         } else {
-            hudState = .selectingSource(mode)
+            setHUDPhase(.selectingSource(mode))
         }
         statusMessage = selectedSource == nil ? "Choose a source." : "Ready"
         requestWindow(.showSourceSelector)
@@ -124,7 +128,7 @@ final class AppModel: ObservableObject {
 
     func selectSource(_ source: CaptureSource) {
         selectedSource = source
-        hudState = .ready(hudState.mode ?? captureMode, source)
+        setHUDPhase(.ready(hudState.mode ?? captureMode, source))
         statusMessage = "Selected \(source.name)"
         if source.kind == .display {
             flashDisplay(for: source)
@@ -144,14 +148,14 @@ final class AppModel: ObservableObject {
             thumbnailData: nil
         )
         selectedSource = source
-        hudState = .ready(hudState.mode ?? captureMode, source)
+        setHUDPhase(.ready(hudState.mode ?? captureMode, source))
         statusMessage = "Selected area"
     }
 
     func requestInteractiveAreaSelection() {
         let mode = hudState.mode ?? captureMode
         selectInteractiveAreaSource()
-        hudState = .areaSelecting(mode)
+        setHUDPhase(.areaSelecting(mode))
         isAreaSelectionActive = true
         statusMessage = "Draw an area to capture."
         requestWindow(.showAreaSelector)
@@ -175,7 +179,7 @@ final class AppModel: ObservableObject {
 
     func cancelCapture() {
         isAreaSelectionActive = false
-        hudState = .choosingMode
+        setHUDPhase(.choosingMode)
         statusMessage = "Ready"
         requestWindow(.closeAreaSelector)
     }
@@ -184,8 +188,26 @@ final class AppModel: ObservableObject {
         windowCommand = NativeWindowCommand(action: action, editorSession: editorSession)
     }
 
+    func showHUD() {
+        hudState = hudState.withPresentation(.visible)
+        requestWindow(.showHUD)
+    }
+
+    func hideHUD() {
+        hudState = hudState.withPresentation(.hidden)
+        requestWindow(.hideHUD)
+    }
+
+    func toggleHUDPresentation() {
+        if hudState.presentation == .visible {
+            hideHUD()
+        } else {
+            showHUD()
+        }
+    }
+
     func showEditor(for session: EditorSession) {
-        hudState = .choosingMode
+        setHUDPhase(.choosingMode)
         isAreaSelectionActive = false
         lastEditorSession = session
         selectedSection = .editor
@@ -201,14 +223,18 @@ final class AppModel: ObservableObject {
     }
 
     private func focusActiveCaptureWindow() {
-        switch hudState {
+        switch hudState.phase {
         case .selectingSource, .ready, .areaSelecting:
             requestWindow(.showSourceSelector)
         case .startingRecording, .recording, .stoppingRecording, .capturingScreenshot:
-            requestWindow(.showHUD)
+            showHUD()
         case .idle, .choosingMode:
-            requestWindow(.showHUD)
+            showHUD()
         }
+    }
+
+    private func setHUDPhase(_ phase: HUDPhase) {
+        hudState = hudState.withPhase(phase)
     }
 
     func startRecording() {
@@ -230,14 +256,14 @@ final class AppModel: ObservableObject {
             let outputURL = URL(fileURLWithPath: prepared.path)
             statusMessage = "Starting recording..."
             recordingPhase = .starting
-            hudState = .startingRecording(selectedSource)
+            setHUDPhase(.startingRecording(selectedSource))
             Task {
                 do {
                     refreshCaptureDevices()
                     let options = currentCaptureOptions
                     guard await preparePermissions(for: options) else {
                         recordingPhase = .idle
-                        hudState = .ready(.recording, selectedSource)
+                        setHUDPhase(.ready(.recording, selectedSource))
                         return
                     }
 
@@ -274,7 +300,7 @@ final class AppModel: ObservableObject {
                     currentScreenshotURL = nil
                     requestWindow(.closeSourceSelector)
                     recordingPhase = .recording
-                    hudState = .recording(selectedSource)
+                    setHUDPhase(.recording(selectedSource))
                     if !statusMessage.hasPrefix("Recording without facecam") {
                         statusMessage = "Recording \(selectedSource.name)"
                     }
@@ -287,7 +313,7 @@ final class AppModel: ObservableObject {
                     recordingPhase = .interrupted
                     statusMessage = error.localizedDescription
                     recordingPhase = .idle
-                    hudState = .ready(.recording, selectedSource)
+                    setHUDPhase(.ready(.recording, selectedSource))
                 }
             }
         } catch {
@@ -302,7 +328,7 @@ final class AppModel: ObservableObject {
         let source = hudState.source ?? selectedSource
         recordingPhase = .stopping
         if let source {
-            hudState = .stoppingRecording(source)
+            setHUDPhase(.stoppingRecording(source))
         }
         Task {
             do {
@@ -347,9 +373,9 @@ final class AppModel: ObservableObject {
                 _ = cursorTelemetryRecorder.stop(videoURL: nil)
                 statusMessage = error.localizedDescription
                 if let source {
-                    hudState = .ready(.recording, source)
+                    setHUDPhase(.ready(.recording, source))
                 } else {
-                    hudState = .choosingMode
+                    setHUDPhase(.choosingMode)
                 }
             }
             activeScreenStartedAt = nil
@@ -371,7 +397,7 @@ final class AppModel: ObservableObject {
         }
 
         do {
-            hudState = .capturingScreenshot(selectedSource)
+            setHUDPhase(.capturingScreenshot(selectedSource))
             let ensuredPaths = try paths ?? service.call("paths", as: AppPaths.self)
             let outputURL = URL(fileURLWithPath: ensuredPaths.screenshotsDir)
                 .appendingPathComponent(timestampedFileName(prefix: "screenshot", extension: "png"))
@@ -386,7 +412,7 @@ final class AppModel: ObservableObject {
             showEditor(for: EditorSession(kind: .screenshot, url: outputURL))
             statusMessage = "Captured \(outputURL.lastPathComponent)"
         } catch {
-            hudState = .ready(.screenshot, selectedSource)
+            setHUDPhase(.ready(.screenshot, selectedSource))
             statusMessage = error.localizedDescription
         }
     }

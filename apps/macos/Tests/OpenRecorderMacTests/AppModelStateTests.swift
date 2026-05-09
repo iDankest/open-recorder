@@ -199,4 +199,16 @@ final class AppModelStateTests: XCTestCase {
         XCTAssertEqual(firstCommand?.action, .showStudio)
         XCTAssertNil(secondCommand)
     }
+
+    func testHideHUDWindowCommandIsConsumedOnce() {
+        let model = AppModel()
+        model.hideHUD()
+
+        let firstCommand = model.consumeWindowCommand(model.windowCommand)
+        let secondCommand = model.consumeWindowCommand(model.windowCommand)
+
+        XCTAssertEqual(model.hudState.presentation, .hidden)
+        XCTAssertEqual(firstCommand?.action, .hideHUD)
+        XCTAssertNil(secondCommand)
+    }
 }
