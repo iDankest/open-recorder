@@ -38,9 +38,49 @@ final class OpenRecorderAppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct OpenRecorderApp: App {
     @NSApplicationDelegateAdaptor(OpenRecorderAppDelegate.self) private var appDelegate
+    @Environment(\.openWindow) private var openWindow
     @StateObject private var model = AppModel()
 
     var body: some Scene {
+        MenuBarExtra {
+            Button("New Recording") {
+                beginCapture(.recording)
+            }
+            .disabled(!model.canStartNewCapture)
+
+            Button("New Screenshot") {
+                beginCapture(.screenshot)
+            }
+            .disabled(!model.canStartNewCapture)
+
+            Divider()
+
+            Button("Show Recorder") {
+                model.requestWindow(.showHUD)
+                openWindow(id: "hud")
+            }
+
+            if let lastEditorSession = model.lastEditorSession {
+                Button("Show Last Editor") {
+                    model.showEditor(for: lastEditorSession)
+                    openWindow(id: "editor", value: lastEditorSession)
+                }
+            }
+
+            Divider()
+
+            Button("Quit Open Recorder") {
+                NSApp.terminate(nil)
+            }
+            .keyboardShortcut("q", modifiers: [.command])
+        } label: {
+            Image(nsImage: OpenRecorderMenuBarIcon.image)
+                .resizable()
+                .renderingMode(.original)
+                .frame(width: 18, height: 18)
+                .accessibilityLabel("Open Recorder")
+        }
+
         Window("Open Recorder", id: "hud") {
             ContentView(role: .hud)
                 .environmentObject(model)
@@ -59,7 +99,17 @@ struct OpenRecorderApp: App {
             ContentView(role: .sourceSelector)
                 .environmentObject(model)
         }
-        .defaultSize(width: 660, height: 820)
+        .windowResizability(.contentSize)
+        .defaultSize(width: SourceSelectorWindowMetrics.width, height: SourceSelectorWindowMetrics.compactHeight)
+
+        Window("Select Area", id: "area-selector") {
+            ContentView(role: .areaSelector)
+                .environmentObject(model)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+        .defaultSize(width: 900, height: 600)
 
         Window("Open Recorder Editor", id: "studio") {
             ContentView(role: .studio)
@@ -67,13 +117,26 @@ struct OpenRecorderApp: App {
                 .frame(minWidth: 800, minHeight: 600)
         }
         .defaultSize(width: 1200, height: 800)
+
+        WindowGroup("Open Recorder Editor", id: "editor", for: EditorSession.self) { $session in
+            ContentView(role: .studio, editorSession: session)
+                .environmentObject(model)
+                .frame(minWidth: 800, minHeight: 600)
+        }
+        .defaultSize(width: 1200, height: 800)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("New Capture") {
-                    model.captureFlow = .choice
-                    model.requestWindow(.showHUD)
+                Button("New Recording") {
+                    beginCapture(.recording)
                 }
                 .keyboardShortcut("n", modifiers: [.command])
+                .disabled(!model.canStartNewCapture)
+
+                Button("New Screenshot") {
+                    beginCapture(.screenshot)
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .disabled(!model.canStartNewCapture)
 
                 Button("Open Project...") {
                     model.openProjectFile()
@@ -101,5 +164,23 @@ struct OpenRecorderApp: App {
                 .environmentObject(model)
                 .frame(width: 560)
         }
+    }
+
+    private func beginCapture(_ mode: CaptureMode) {
+        model.beginCapture(mode)
+        guard model.canStartNewCapture else { return }
+        openWindow(id: "source-selector")
+        openWindow(id: "hud")
+    }
+}
+
+private enum OpenRecorderMenuBarIcon {
+    static var image: NSImage {
+        let image = Bundle.module
+            .url(forResource: "OpenRecorderMenuBarIcon", withExtension: "png")
+            .flatMap(NSImage.init(contentsOf:)) ?? NSImage(size: NSSize(width: 18, height: 18))
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = false
+        return image
     }
 }

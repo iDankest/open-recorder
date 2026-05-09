@@ -36,6 +36,12 @@ final class CaptureController: ObservableObject {
     private var nativeRecorder: NativeScreenRecorder?
     private var requestedScreenRecordingAccessThisSession = false
 
+    #if DEBUG
+    func setRecordingForTesting(_ isRecording: Bool) {
+        self.isRecording = isRecording
+    }
+    #endif
+
     func reloadSources() async {
         do {
             let content = try await shareableContent()
@@ -107,8 +113,19 @@ final class CaptureController: ObservableObject {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
         process.arguments = arguments
-        process.standardError = Pipe()
+        let errorPipe = Pipe()
+        process.standardError = errorPipe
         try process.run()
+
+        try await Task.sleep(nanoseconds: 300_000_000)
+        if !process.isRunning {
+            let message = String(
+                data: errorPipe.fileHandleForReading.readDataToEndOfFile(),
+                encoding: .utf8
+            )?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            throw CaptureControllerError.commandFailed(message ?? "Recording capture failed or was cancelled.")
+        }
 
         recordingProcess = process
         activeRecordingURL = outputURL
@@ -260,8 +277,11 @@ final class CaptureController: ObservableObject {
         case .window:
             return source.windowID.map { ["-l\($0)"] } ?? []
         case .area:
+            if let area = source.area {
+                return ["-R\(area.x),\(area.y),\(area.width),\(area.height)"]
+            }
             if interactiveAreaMode == "video" {
-                return ["-i", "-Jvideo"]
+                return ["-Jvideo"]
             }
             return ["-i", "-s"]
         }
@@ -304,6 +324,7 @@ final class CaptureController: ObservableObject {
                 displayIndex: displayIndex,
                 displayID: display.displayID,
                 windowID: nil,
+                area: nil,
                 thumbnailData: await thumbnailDataForDisplay(display)
             ))
         }
@@ -331,6 +352,7 @@ final class CaptureController: ObservableObject {
                 displayIndex: nil,
                 displayID: nil,
                 windowID: window.windowID,
+                area: nil,
                 thumbnailData: await thumbnailDataForWindow(window)
             ))
         }
@@ -351,6 +373,7 @@ final class CaptureController: ObservableObject {
                 displayIndex: displayIndex,
                 displayID: displayID,
                 windowID: nil,
+                area: nil,
                 thumbnailData: nil
             )
         }
@@ -389,6 +412,7 @@ final class CaptureController: ObservableObject {
                 displayIndex: nil,
                 displayID: nil,
                 windowID: windowID,
+                area: nil,
                 thumbnailData: nil
             )
         }

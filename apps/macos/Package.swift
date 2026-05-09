@@ -10,7 +10,10 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "OpenRecorderMac"
+            name: "OpenRecorderMac",
+            resources: [
+                .process("Resources")
+            ]
         ),
         .testTarget(
             name: "OpenRecorderMacTests",

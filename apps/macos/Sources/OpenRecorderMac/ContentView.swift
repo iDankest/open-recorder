@@ -5,12 +5,14 @@ import SwiftUI
 enum AppWindowRole {
     case hud
     case sourceSelector
+    case areaSelector
     case studio
 }
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     var role: AppWindowRole = .studio
+    var editorSession: EditorSession?
 
     var body: some View {
         Group {
@@ -21,10 +23,13 @@ struct ContentView: View {
                     .background(WindowConfigurator(role: .hud, preferredSize: hudSize))
             case .sourceSelector:
                 SourceSelectorWindowView()
-                    .frame(minWidth: 520, idealWidth: 660, maxWidth: .infinity, minHeight: 620, idealHeight: 820, maxHeight: .infinity)
+                    .frame(width: SourceSelectorWindowMetrics.width)
                     .background(WindowConfigurator(role: .sourceSelector))
+            case .areaSelector:
+                AreaSelectionWindowView()
+                    .background(WindowConfigurator(role: .areaSelector, isPresented: model.isAreaSelectionActive))
             case .studio:
-                StudioWindowView()
+                StudioWindowView(editorSession: editorSession)
                     .background(WindowConfigurator(role: .studio))
             }
         }
@@ -58,23 +63,27 @@ struct SettingsView: View {
 private enum NativeWindowRole {
     case hud
     case sourceSelector
+    case areaSelector
     case studio
 }
 
 private struct WindowConfigurator: NSViewRepresentable {
     var role: NativeWindowRole
     var preferredSize: CGSize?
+    var isPresented = true
 
     func makeNSView(context: Context) -> WindowConfigurationView {
         let view = WindowConfigurationView()
         view.role = role
         view.preferredSize = preferredSize
+        view.isPresented = isPresented
         return view
     }
 
     func updateNSView(_ nsView: WindowConfigurationView, context: Context) {
         nsView.role = role
         nsView.preferredSize = preferredSize
+        nsView.isPresented = isPresented
         nsView.configureWindow()
     }
 }
@@ -92,6 +101,7 @@ private final class WindowConfigurationView: NSView {
             }
         }
     }
+    var isPresented = true
 
     private var configuredRole: NativeWindowRole?
 
@@ -101,7 +111,17 @@ private final class WindowConfigurationView: NSView {
     }
 
     func configureWindow() {
-        guard let window, configuredRole != role else { return }
+        guard let window else { return }
+        if role == .areaSelector {
+            guard isPresented else {
+                window.close()
+                return
+            }
+            configuredRole = role
+            configureAreaSelector(window)
+            return
+        }
+        guard configuredRole != role else { return }
         configuredRole = role
 
         switch role {
@@ -109,6 +129,8 @@ private final class WindowConfigurationView: NSView {
             configureHUD(window)
         case .sourceSelector:
             configureSourceSelector(window)
+        case .areaSelector:
+            configureAreaSelector(window)
         case .studio:
             configureStudio(window)
         }
@@ -138,9 +160,9 @@ private final class WindowConfigurationView: NSView {
 
     private func configureSourceSelector(_ window: NSWindow) {
         window.title = "Choose Source"
-        window.setContentSize(NSSize(width: 660, height: 820))
-        window.minSize = NSSize(width: 520, height: 620)
-        window.maxSize = NSSize(width: 1400, height: 1200)
+        window.setContentSize(NSSize(width: SourceSelectorWindowMetrics.width, height: SourceSelectorWindowMetrics.compactHeight))
+        window.minSize = NSSize(width: SourceSelectorWindowMetrics.minWidth, height: SourceSelectorWindowMetrics.minHeight)
+        window.maxSize = NSSize(width: 1400, height: SourceSelectorWindowMetrics.maxHeight)
         window.isOpaque = true
         window.backgroundColor = NSColor(red: 0.055, green: 0.055, blue: 0.070, alpha: 1)
         window.hasShadow = true
@@ -150,6 +172,29 @@ private final class WindowConfigurationView: NSView {
         window.titleVisibility = .visible
         window.titlebarAppearsTransparent = false
         window.center()
+    }
+
+    private func configureAreaSelector(_ window: NSWindow) {
+        let screenFrame = (window.screen ?? NSScreen.main ?? NSScreen.screens.first)?.frame ?? NSRect(x: 0, y: 0, width: 900, height: 600)
+        window.title = "Select Area"
+        window.setFrame(screenFrame, display: true)
+        window.minSize = screenFrame.size
+        window.maxSize = screenFrame.size
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.level = .screenSaver
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.isMovableByWindowBackground = false
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask = [.titled, .fullSizeContentView]
+        [.closeButton, .miniaturizeButton, .zoomButton].forEach { button in
+            window.standardWindowButton(button)?.isHidden = true
+        }
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func configureStudio(_ window: NSWindow) {
@@ -179,6 +224,78 @@ private final class WindowConfigurationView: NSView {
     }
 }
 
+enum SourceSelectorWindowMetrics {
+    static let width: CGFloat = 660
+    static let minWidth: CGFloat = 520
+    static let compactHeight: CGFloat = 454
+    static let minHeight: CGFloat = 360
+    static let maxHeight: CGFloat = 1200
+    static let outerPadding: CGFloat = 16
+}
+
+private struct SourceSelectorCardHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = SourceSelectorWindowMetrics.compactHeight - (SourceSelectorWindowMetrics.outerPadding * 2)
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct SourceSelectorWindowSizer: NSViewRepresentable {
+    var size: CGSize
+
+    func makeNSView(context: Context) -> SourceSelectorWindowSizingView {
+        let view = SourceSelectorWindowSizingView()
+        view.preferredContentSize = size
+        return view
+    }
+
+    func updateNSView(_ nsView: SourceSelectorWindowSizingView, context: Context) {
+        nsView.preferredContentSize = size
+        nsView.applyPreferredContentSize()
+    }
+}
+
+private final class SourceSelectorWindowSizingView: NSView {
+    var preferredContentSize: CGSize = .zero
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyPreferredContentSize()
+    }
+
+    func applyPreferredContentSize() {
+        guard let window, preferredContentSize.width > 0, preferredContentSize.height > 0 else { return }
+
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self, let window else { return }
+
+            let targetContentSize = NSSize(
+                width: self.preferredContentSize.width,
+                height: min(max(self.preferredContentSize.height, SourceSelectorWindowMetrics.minHeight), SourceSelectorWindowMetrics.maxHeight)
+            )
+            let currentContentSize = window.contentView?.bounds.size ?? window.contentRect(forFrameRect: window.frame).size
+            guard abs(currentContentSize.width - targetContentSize.width) > 0.5 ||
+                    abs(currentContentSize.height - targetContentSize.height) > 0.5 else {
+                return
+            }
+
+            let targetFrameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: targetContentSize)).size
+            var nextFrame = window.frame
+            nextFrame.origin.x += (nextFrame.width - targetFrameSize.width) / 2
+            nextFrame.origin.y += (nextFrame.height - targetFrameSize.height) / 2
+            nextFrame.size = targetFrameSize
+
+            if let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
+                nextFrame.origin.x = min(max(nextFrame.origin.x, visibleFrame.minX), visibleFrame.maxX - nextFrame.width)
+                nextFrame.origin.y = min(max(nextFrame.origin.y, visibleFrame.minY), visibleFrame.maxY - nextFrame.height)
+            }
+
+            window.setFrame(nextFrame, display: true)
+        }
+    }
+}
+
 private struct WindowCommandBridge: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.openWindow) private var openWindow
@@ -203,10 +320,18 @@ private struct WindowCommandBridge: View {
             openWindow(id: "hud")
         case .showSourceSelector:
             openWindow(id: "source-selector")
+        case .showAreaSelector:
+            openWindow(id: "area-selector")
         case .showStudio:
-            openWindow(id: "studio")
+            if let editorSession = command.editorSession {
+                openWindow(id: "editor", value: editorSession)
+            } else {
+                openWindow(id: "studio")
+            }
         case .closeSourceSelector:
             dismissWindow(id: "source-selector")
+        case .closeAreaSelector:
+            dismissWindow(id: "area-selector")
         }
     }
 }
@@ -256,16 +381,14 @@ private struct SourceSelectorWindowView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var sourceTab: SourceSelectorTab = .screens
+    @State private var preferredHeight: CGFloat = SourceSelectorWindowMetrics.compactHeight
 
     private var visibleTabs: [SourceSelectorTab] {
-        model.captureMode == .recording ? SourceSelectorTab.allCases : [.screens, .windows]
+        SourceSelectorTab.allCases
     }
 
     var body: some View {
-        ZStack {
-            Color.studioBackground
-                .ignoresSafeArea()
-
+        VStack(spacing: 0) {
             SourceSelectorCard(
                 sourceTab: $sourceTab,
                 visibleTabs: visibleTabs,
@@ -281,29 +404,38 @@ private struct SourceSelectorWindowView: View {
                 onDrawArea: {
                     model.selectInteractiveAreaSource()
                     dismissWindow(id: "source-selector")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        model.requestInteractiveAreaSelection()
+                    }
                 }
             )
             .padding(16)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .preference(key: SourceSelectorCardHeightPreferenceKey.self, value: proxy.size.height)
+                }
+            }
+        }
+        .background(SourceSelectorWindowSizer(size: CGSize(width: SourceSelectorWindowMetrics.width, height: preferredHeight)))
+        .background(Color.studioBackground.ignoresSafeArea())
+        .onPreferenceChange(SourceSelectorCardHeightPreferenceKey.self) { cardHeight in
+            let nextHeight = ceil(cardHeight + (SourceSelectorWindowMetrics.outerPadding * 2))
+            guard abs(preferredHeight - nextHeight) > 0.5 else { return }
+            preferredHeight = nextHeight
         }
         .onAppear {
-            if model.captureMode == .screenshot, sourceTab == .area {
-                sourceTab = .screens
-            }
             model.reloadSources()
-        }
-        .onChange(of: model.captureMode) { _, newMode in
-            if newMode == .screenshot && sourceTab == .area {
-                sourceTab = .screens
-            }
         }
     }
 }
 
 private struct StudioWindowView: View {
     @EnvironmentObject private var model: AppModel
+    var editorSession: EditorSession?
 
     var body: some View {
-        StudioShell()
+        StudioShell(editorSession: editorSession)
             .onAppear {
                 if model.selectedSection == .capture {
                     model.selectedSection = .editor
@@ -312,8 +444,135 @@ private struct StudioWindowView: View {
     }
 }
 
+private struct AreaSelectionWindowView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismissWindow) private var dismissWindow
+    @State private var dragStart: CGPoint?
+    @State private var dragCurrent: CGPoint?
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                Color.black.opacity(0.28)
+                    .ignoresSafeArea()
+
+                if let selectionRect {
+                    Rectangle()
+                        .fill(Color.clear)
+                        .overlay {
+                            Rectangle()
+                                .stroke(Color.white, lineWidth: 2)
+                        }
+                        .background(Color.white.opacity(0.08))
+                        .frame(width: selectionRect.width, height: selectionRect.height)
+                        .position(x: selectionRect.midX, y: selectionRect.midY)
+                }
+
+                VStack(spacing: 8) {
+                    Image(systemName: "rectangle.dashed")
+                        .font(.system(size: 26, weight: .medium))
+                    Text("Drag to select an area")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("Release to start \(model.captureMode == .recording ? "recording" : "capturing"). Press Esc to cancel.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .opacity(selectionRect == nil ? 1 : 0)
+            }
+            .contentShape(Rectangle())
+            .gesture(selectionGesture(in: proxy.size))
+            .onKeyPress(.escape) {
+                model.cancelInteractiveAreaSelection()
+                dismiss()
+                dismissWindow(id: "area-selector")
+                return .handled
+            }
+        }
+        .focusable()
+        .focusedValue(\.areaSelectionIsFocused, true)
+        .onAppear {
+            dragStart = nil
+            dragCurrent = nil
+            DispatchQueue.main.async {
+                if !model.isAreaSelectionActive {
+                    dismiss()
+                    dismissWindow(id: "area-selector")
+                }
+            }
+        }
+    }
+
+    private var selectionRect: CGRect? {
+        guard let dragStart, let dragCurrent else { return nil }
+        return CGRect(
+            x: min(dragStart.x, dragCurrent.x),
+            y: min(dragStart.y, dragCurrent.y),
+            width: abs(dragCurrent.x - dragStart.x),
+            height: abs(dragCurrent.y - dragStart.y)
+        )
+    }
+
+    private func selectionGesture(in size: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 1, coordinateSpace: .local)
+            .onChanged { value in
+                if dragStart == nil {
+                    dragStart = clamped(value.startLocation, to: size)
+                }
+                dragCurrent = clamped(value.location, to: size)
+            }
+            .onEnded { _ in
+                guard let rect = selectionRect, rect.width >= 8, rect.height >= 8 else {
+                    dragStart = nil
+                    dragCurrent = nil
+                    return
+                }
+
+                dismiss()
+                dismissWindow(id: "area-selector")
+                let area = captureArea(for: rect)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    model.completeInteractiveAreaSelection(area)
+                }
+            }
+    }
+
+    private func clamped(_ point: CGPoint, to size: CGSize) -> CGPoint {
+        CGPoint(
+            x: min(max(point.x, 0), size.width),
+            y: min(max(point.y, 0), size.height)
+        )
+    }
+
+    private func captureArea(for rect: CGRect) -> CaptureArea {
+        let screenFrame = NSScreen.main?.frame ?? NSRect(origin: .zero, size: CGSize(width: 900, height: 600))
+        return CaptureArea(
+            x: Int((screenFrame.minX + rect.minX).rounded()),
+            y: Int((screenFrame.maxY - rect.maxY).rounded()),
+            width: max(Int(rect.width.rounded()), 1),
+            height: max(Int(rect.height.rounded()), 1)
+        )
+    }
+}
+
+private struct AreaSelectionFocusKey: FocusedValueKey {
+    typealias Value = Bool
+}
+
+private extension FocusedValues {
+    var areaSelectionIsFocused: Bool? {
+        get { self[AreaSelectionFocusKey.self] }
+        set { self[AreaSelectionFocusKey.self] = newValue }
+    }
+}
+
 private struct StudioShell: View {
     @EnvironmentObject private var model: AppModel
+    var editorSession: EditorSession?
     @State private var sidebarExpanded = true
 
     var body: some View {
@@ -321,7 +580,7 @@ private struct StudioShell: View {
             StudioSidebar(isExpanded: sidebarExpanded)
 
             VStack(spacing: 0) {
-                StudioTitleBar(sidebarExpanded: $sidebarExpanded)
+                StudioTitleBar(sidebarExpanded: $sidebarExpanded, editorSession: editorSession)
                 detailView
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -339,11 +598,11 @@ private struct StudioShell: View {
     private var detailView: some View {
         switch model.selectedSection {
         case .capture:
-            EditorStudioView()
+            EditorStudioView(editorSession: editorSession)
         case .projects:
             ProjectsStudioView()
         case .editor:
-            EditorStudioView()
+            EditorStudioView(editorSession: editorSession)
         case .settings:
             SettingsStudioView()
         }
@@ -355,6 +614,9 @@ private struct StudioSidebar: View {
     var isExpanded: Bool
 
     private let items: [AppSection] = [.editor, .projects]
+    private var isScreenshotEditor: Bool {
+        model.currentScreenshotURL != nil && model.currentVideoURL == nil
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -366,7 +628,7 @@ private struct StudioSidebar: View {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .stroke(Color.brand.opacity(0.24), lineWidth: 1)
                         }
-                    Image(systemName: "video.fill")
+                    Image(systemName: isScreenshotEditor ? "photo.fill" : "video.fill")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Color.brand)
                 }
@@ -378,7 +640,7 @@ private struct StudioSidebar: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
-                        Text("Studio")
+                        Text(isScreenshotEditor ? "Image Studio" : "Studio")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 7)
@@ -439,7 +701,7 @@ private struct StudioSidebar: View {
 
     private func sidebarSymbol(for section: AppSection) -> String {
         switch section {
-        case .editor: "video"
+        case .editor: isScreenshotEditor ? "photo" : "video"
         case .projects: "folder.badge.gearshape"
         case .capture: "record.circle"
         case .settings: "gearshape"
@@ -503,6 +765,7 @@ private struct StatusFooter: View {
 private struct StudioTitleBar: View {
     @EnvironmentObject private var model: AppModel
     @Binding var sidebarExpanded: Bool
+    var editorSession: EditorSession?
 
     var body: some View {
         ZStack {
@@ -519,9 +782,9 @@ private struct StudioTitleBar: View {
 
                 Spacer()
 
-                if model.selectedSection == .editor {
+                if model.selectedSection == .editor, let videoURL {
                     Button {
-                        model.exportCurrentRecording()
+                        model.exportCurrentRecording(videoURL)
                     } label: {
                         Label("Export Video", systemImage: "arrow.down.circle")
                             .font(.system(size: 12, weight: .semibold))
@@ -532,8 +795,19 @@ private struct StudioTitleBar: View {
                             .foregroundStyle(Color.white)
                     }
                     .buttonStyle(.plain)
-                    .disabled(model.currentVideoURL == nil)
-                    .opacity(model.currentVideoURL == nil ? 0.55 : 1)
+                } else if model.selectedSection == .editor, let screenshotURL {
+                    Button {
+                        model.copyScreenshotToClipboard(screenshotURL)
+                    } label: {
+                        Label("Copy Screenshot", systemImage: "doc.on.doc")
+                            .font(.system(size: 12, weight: .semibold))
+                            .labelStyle(.titleAndIcon)
+                            .padding(.horizontal, 12)
+                            .frame(height: 32)
+                            .background(Color.brand, in: RoundedRectangle(cornerRadius: 7))
+                            .foregroundStyle(Color.white)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 12)
@@ -544,8 +818,8 @@ private struct StudioTitleBar: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: 520)
-                if model.selectedSection == .editor {
-                    Text("MP4")
+                if model.selectedSection == .editor, let editorBadge {
+                    Text(editorBadge)
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 7)
@@ -572,8 +846,38 @@ private struct StudioTitleBar: View {
         case .settings:
             "Settings"
         case .editor:
-            model.currentVideoURL?.lastPathComponent ?? "Open Recorder Editor"
+            editorSession?.title ??
+                model.currentVideoURL?.lastPathComponent ??
+                    model.currentScreenshotURL?.lastPathComponent ??
+                    "Open Recorder Editor"
         }
+    }
+
+    private var editorBadge: String? {
+        if let editorSession {
+            return editorSession.kind.badge
+        }
+        if model.currentVideoURL != nil {
+            return EditorMediaKind.video.badge
+        }
+        if model.currentScreenshotURL != nil {
+            return EditorMediaKind.screenshot.badge
+        }
+        return nil
+    }
+
+    private var videoURL: URL? {
+        if let editorSession {
+            return editorSession.kind == .video ? editorSession.url : nil
+        }
+        return model.currentVideoURL
+    }
+
+    private var screenshotURL: URL? {
+        if let editorSession {
+            return editorSession.kind == .screenshot ? editorSession.url : nil
+        }
+        return model.currentScreenshotURL
     }
 }
 
@@ -606,7 +910,7 @@ private struct CaptureStudioView: View {
     @State private var sourceTab: SourceSelectorTab = .screens
 
     private var visibleTabs: [SourceSelectorTab] {
-        model.captureMode == .recording ? SourceSelectorTab.allCases : [.screens, .windows]
+        SourceSelectorTab.allCases
     }
 
     var body: some View {
@@ -622,7 +926,13 @@ private struct CaptureStudioView: View {
             } else {
                 VStack(spacing: 18) {
                     Spacer(minLength: 10)
-                    SourceSelectorCard(sourceTab: $sourceTab, visibleTabs: visibleTabs)
+                    SourceSelectorCard(
+                        sourceTab: $sourceTab,
+                        visibleTabs: visibleTabs,
+                        onDrawArea: {
+                            model.requestInteractiveAreaSelection()
+                        }
+                    )
                         .frame(maxWidth: 860)
                     CaptureHUD(sourceTab: $sourceTab)
                         .padding(.bottom, 12)
@@ -632,11 +942,6 @@ private struct CaptureStudioView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onChange(of: model.captureMode) { _, newMode in
-            if newMode == .screenshot && sourceTab == .area {
-                sourceTab = .screens
-            }
-        }
     }
 }
 
@@ -779,7 +1084,7 @@ private struct SourceSelectorCard: View {
 
     private var selectorDescription: String {
         if model.captureMode == .screenshot {
-            "Pick a screen or a single app window for this screenshot."
+            "Pick a screen, app window, or drawn area for this screenshot."
         } else {
             "Pick a screen, app window, or drawn area for the next recording."
         }
@@ -932,9 +1237,9 @@ private struct SourceEmptyState: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 64, height: 64)
                 .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 14))
-            Text(sourceTab == .area ? "Draw a recording area" : "No sources available")
+            Text(sourceTab == .area ? "Draw a capture area" : "No sources available")
                 .font(.system(size: 15, weight: .semibold))
-            Text(sourceTab == .area ? "Select the part of the screen you want to record." : "Try a different tab or make sure the source is visible.")
+            Text(sourceTab == .area ? "Select the part of the screen you want to capture." : "Try a different tab or make sure the source is visible.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
             if sourceTab == .area {
@@ -1377,6 +1682,33 @@ private struct HUDToggle: View {
 
 private struct EditorStudioView: View {
     @EnvironmentObject private var model: AppModel
+    var editorSession: EditorSession?
+
+    var body: some View {
+        if screenshotURL != nil {
+            ScreenshotEditorStudioView(screenshotURL: screenshotURL)
+        } else {
+            VideoEditorStudioView(videoURL: videoURL)
+        }
+    }
+
+    private var videoURL: URL? {
+        if let editorSession {
+            return editorSession.kind == .video ? editorSession.url : nil
+        }
+        return model.currentVideoURL
+    }
+
+    private var screenshotURL: URL? {
+        if let editorSession {
+            return editorSession.kind == .screenshot ? editorSession.url : nil
+        }
+        return model.currentScreenshotURL
+    }
+}
+
+private struct VideoEditorStudioView: View {
+    var videoURL: URL?
     @State private var borderRadius = 12.0
     @State private var padding = 18.0
     @State private var shadow = 0.35
@@ -1388,7 +1720,7 @@ private struct EditorStudioView: View {
     var body: some View {
         HStack(spacing: 16) {
             VStack(spacing: 12) {
-                VideoPreviewPanel()
+                VideoPreviewPanel(videoURL: videoURL)
                     .frame(maxHeight: .infinity)
                     .layoutPriority(1)
                 TimelinePanel()
@@ -1412,14 +1744,306 @@ private struct EditorStudioView: View {
     }
 }
 
-private struct VideoPreviewPanel: View {
+private enum ScreenshotBackgroundMode: String, CaseIterable, Identifiable {
+    case gradient
+    case color
+    case transparent
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .gradient: "Gradient"
+        case .color: "Color"
+        case .transparent: "None"
+        }
+    }
+}
+
+private struct ScreenshotEditorStudioView: View {
+    var screenshotURL: URL?
+    @State private var backgroundMode: ScreenshotBackgroundMode = .gradient
+    @State private var gradientIndex = 0
+    @State private var solidColor = Color(red: 0.055, green: 0.055, blue: 0.067)
+    @State private var padding = 56.0
+    @State private var borderRadius = 10.0
+    @State private var shadow = 0.45
+
+    private let gradients: [LinearGradient] = [
+        LinearGradient(colors: [Color(red: 0.11, green: 0.17, blue: 0.25), Color(red: 0.03, green: 0.04, blue: 0.06)], startPoint: .topLeading, endPoint: .bottomTrailing),
+        LinearGradient(colors: [Color(red: 0.12, green: 0.10, blue: 0.19), Color(red: 0.02, green: 0.03, blue: 0.05)], startPoint: .topLeading, endPoint: .bottomTrailing),
+        LinearGradient(colors: [Color(red: 0.10, green: 0.18, blue: 0.14), Color(red: 0.03, green: 0.04, blue: 0.04)], startPoint: .topLeading, endPoint: .bottomTrailing),
+        LinearGradient(colors: [Color(red: 0.20, green: 0.18, blue: 0.14), Color(red: 0.05, green: 0.04, blue: 0.04)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    ]
+
+    var body: some View {
+        HStack(spacing: 16) {
+            ScreenshotCanvas(
+                image: image,
+                backgroundMode: backgroundMode,
+                gradient: gradients[gradientIndex],
+                solidColor: solidColor,
+                padding: padding,
+                borderRadius: borderRadius,
+                shadow: shadow
+            )
+            .layoutPriority(1)
+
+            ScreenshotSettingsPanel(
+                backgroundMode: $backgroundMode,
+                gradientIndex: $gradientIndex,
+                solidColor: $solidColor,
+                padding: $padding,
+                borderRadius: $borderRadius,
+                shadow: $shadow,
+                gradients: gradients
+            )
+            .frame(width: 320)
+        }
+        .padding(16)
+        .background(Color.studioMutedBackground)
+    }
+
+    private var image: NSImage? {
+        guard let url = screenshotURL else { return nil }
+        return NSImage(contentsOf: url)
+    }
+}
+
+private struct ScreenshotCanvas: View {
+    var image: NSImage?
+    var backgroundMode: ScreenshotBackgroundMode
+    var gradient: LinearGradient
+    var solidColor: Color
+    var padding: Double
+    var borderRadius: Double
+    var shadow: Double
+
+    var body: some View {
+        ZStack {
+            if let image {
+                screenshotStage(image)
+                    .padding(32)
+            } else {
+                EmptyEditorState()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.studioPanel.opacity(0.86), in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.studioBorder)
+        }
+        .shadow(color: Color.black.opacity(0.20), radius: 22, y: 14)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func screenshotStage(_ image: NSImage) -> some View {
+        ZStack {
+            stageBackground
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .clipShape(RoundedRectangle(cornerRadius: borderRadius))
+                .shadow(color: Color.black.opacity(0.55 * shadow), radius: 38 * shadow, y: 18 * shadow)
+                .padding(CGFloat(padding))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: borderRadius + min(padding / 2, 24)))
+        .overlay {
+            RoundedRectangle(cornerRadius: borderRadius + min(padding / 2, 24))
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder
+    private var stageBackground: some View {
+        switch backgroundMode {
+        case .gradient:
+            gradient
+        case .color:
+            solidColor
+        case .transparent:
+            Checkerboard()
+        }
+    }
+}
+
+private struct ScreenshotSettingsPanel: View {
     @EnvironmentObject private var model: AppModel
+    @Binding var backgroundMode: ScreenshotBackgroundMode
+    @Binding var gradientIndex: Int
+    @Binding var solidColor: Color
+    @Binding var padding: Double
+    @Binding var borderRadius: Double
+    @Binding var shadow: Double
+    var gradients: [LinearGradient]
+
+    private let colorSwatches: [Color] = [
+        Color(red: 0.055, green: 0.055, blue: 0.067),
+        Color(red: 0.95, green: 0.96, blue: 0.98),
+        Color(red: 0.10, green: 0.16, blue: 0.24),
+        Color(red: 0.13, green: 0.19, blue: 0.14),
+        Color(red: 0.24, green: 0.13, blue: 0.18),
+        Color(red: 0.23, green: 0.20, blue: 0.13)
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    header
+                    backgroundControls
+                    InspectorSlider(title: "Padding", valueText: "\(Int(padding))px", value: $padding, range: 0...140, step: 1)
+                    InspectorSlider(title: "Roundness", valueText: "\(Int(borderRadius))px", value: $borderRadius, range: 0...48, step: 1)
+                    InspectorSlider(title: "Shadow", valueText: "\(Int(shadow * 100))%", value: $shadow, range: 0...1, step: 0.01)
+                }
+                .padding(14)
+            }
+
+            Rectangle()
+                .fill(Color.studioBorder)
+                .frame(height: 1)
+
+            HStack(spacing: 8) {
+                InspectorFooterButton(title: "Reveal File", symbolName: "folder") {
+                    if let url = model.currentScreenshotURL {
+                        model.reveal(url.path)
+                    }
+                }
+                InspectorFooterButton(title: "Copy PNG", symbolName: "doc.on.doc") {
+                    model.copyScreenshotToClipboard()
+                }
+            }
+            .padding(12)
+            .background(Color.white.opacity(0.025))
+        }
+        .background(Color.studioPanel.opacity(0.86), in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.studioBorder)
+        }
+        .shadow(color: Color.black.opacity(0.18), radius: 18, y: 12)
+    }
+
+    private var header: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "photo")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.brand)
+                .frame(width: 30, height: 30)
+                .background(Color.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Screenshot Settings")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Background, padding, corners, and shadow.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.06))
+        }
+    }
+
+    private var backgroundControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Background")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+
+            HStack(spacing: 6) {
+                ForEach(ScreenshotBackgroundMode.allCases) { mode in
+                    Button {
+                        backgroundMode = mode
+                    } label: {
+                        Text(mode.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 30)
+                            .background(backgroundMode == mode ? Color.brand : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+                            .foregroundStyle(backgroundMode == mode ? Color.white : Color.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if backgroundMode == .gradient {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+                    ForEach(gradients.indices, id: \.self) { index in
+                        Button {
+                            gradientIndex = index
+                        } label: {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(gradients[index])
+                                .frame(height: 44)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(gradientIndex == index ? Color.brand : Color.white.opacity(0.10), lineWidth: gradientIndex == index ? 2 : 1)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            if backgroundMode == .color {
+                HStack(spacing: 8) {
+                    ForEach(colorSwatches.indices, id: \.self) { index in
+                        Button {
+                            solidColor = colorSwatches[index]
+                        } label: {
+                            Circle()
+                                .fill(colorSwatches[index])
+                                .frame(width: 28, height: 28)
+                                .overlay {
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct Checkerboard: View {
+    var body: some View {
+        Canvas { context, size in
+            let tile: CGFloat = 18
+            let columns = Int(ceil(size.width / tile))
+            let rows = Int(ceil(size.height / tile))
+            for row in 0...rows {
+                for column in 0...columns {
+                    let isLight = (row + column).isMultiple(of: 2)
+                    let rect = CGRect(x: CGFloat(column) * tile, y: CGFloat(row) * tile, width: tile, height: tile)
+                    context.fill(Path(rect), with: .color(isLight ? Color.white.opacity(0.18) : Color.white.opacity(0.08)))
+                }
+            }
+        }
+        .background(Color.black.opacity(0.25))
+    }
+}
+
+private struct VideoPreviewPanel: View {
+    var videoURL: URL?
     @StateObject private var playback = VideoPlaybackController()
 
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                if model.currentVideoURL != nil {
+                if videoURL != nil {
                     PlaybackPreview(playback: playback)
                         .aspectRatio(16.0 / 9.0, contentMode: .fit)
                         .padding(16)
@@ -1450,9 +2074,9 @@ private struct VideoPreviewPanel: View {
         .shadow(color: Color.black.opacity(0.20), radius: 22, y: 14)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .onAppear {
-            syncPlaybackURL(model.currentVideoURL)
+            syncPlaybackURL(videoURL)
         }
-        .onChange(of: model.currentVideoURL) { _, newURL in
+        .onChange(of: videoURL) { _, newURL in
             syncPlaybackURL(newURL)
         }
     }

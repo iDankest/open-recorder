@@ -1,5 +1,12 @@
 import Foundation
 
+struct CaptureArea: Codable, Hashable {
+    var x: Int
+    var y: Int
+    var width: Int
+    var height: Int
+}
+
 enum CaptureSourceKind: String, Codable, CaseIterable, Identifiable {
     case display
     case window
@@ -24,6 +31,7 @@ struct CaptureSource: Identifiable, Codable, Hashable {
     var displayIndex: Int?
     var displayID: UInt32?
     var windowID: UInt32?
+    var area: CaptureArea?
     var thumbnailData: Data?
 }
 
@@ -57,6 +65,36 @@ struct ProjectDocument: Codable {
     var sourceName: String?
     var createdAt: String
     var updatedAt: String
+}
+
+enum EditorMediaKind: String, Codable, Hashable {
+    case video
+    case screenshot
+
+    var badge: String {
+        switch self {
+        case .video: "MP4"
+        case .screenshot: "PNG"
+        }
+    }
+}
+
+struct EditorSession: Codable, Hashable, Identifiable {
+    var id: UUID
+    var kind: EditorMediaKind
+    var path: String
+    var title: String
+
+    init(kind: EditorMediaKind, url: URL, title: String? = nil, id: UUID = UUID()) {
+        self.id = id
+        self.kind = kind
+        self.path = url.path
+        self.title = title ?? url.lastPathComponent
+    }
+
+    var url: URL {
+        URL(fileURLWithPath: path)
+    }
 }
 
 enum AppSection: String, CaseIterable, Identifiable {
@@ -112,13 +150,16 @@ enum CaptureFlow: String, CaseIterable, Identifiable {
 enum NativeWindowCommandAction: Equatable {
     case showHUD
     case showSourceSelector
+    case showAreaSelector
     case showStudio
     case closeSourceSelector
+    case closeAreaSelector
 }
 
 struct NativeWindowCommand: Identifiable {
     var id = UUID()
     var action: NativeWindowCommandAction
+    var editorSession: EditorSession?
 }
 
 struct HealthPayload: Codable {

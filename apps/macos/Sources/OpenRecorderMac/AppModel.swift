@@ -12,12 +12,14 @@ final class AppModel: ObservableObject {
     @Published var projects: [ProjectSummary] = []
     @Published var currentVideoURL: URL?
     @Published var currentScreenshotURL: URL?
+    @Published var lastEditorSession: EditorSession?
     @Published var statusMessage = "Ready"
     @Published var serviceHealth: HealthPayload?
     @Published var includeMicrophone = false
     @Published var showCursor = true
     @Published var showClicks = false
     @Published var windowCommand: NativeWindowCommand?
+    @Published var isAreaSelectionActive = false
 
     private var handledWindowCommandID: UUID?
 
@@ -55,7 +57,16 @@ final class AppModel: ObservableObject {
         }
     }
 
+    var canStartNewCapture: Bool {
+        !capture.isRecording
+    }
+
     func beginCapture(_ mode: CaptureMode) {
+        guard canStartNewCapture else {
+            statusMessage = "Stop the current recording before starting another capture."
+            return
+        }
+
         captureMode = mode
         captureFlow = mode == .screenshot ? .screenshotSetup : .recordingSetup
         statusMessage = selectedSource == nil ? "Choose a source." : "Ready"
@@ -67,22 +78,53 @@ final class AppModel: ObservableObject {
         statusMessage = "Selected \(source.name)"
     }
 
-    func selectInteractiveAreaSource() {
+    func selectInteractiveAreaSource(area: CaptureArea? = nil) {
         selectedSource = CaptureSource(
             id: "area:interactive",
             kind: .area,
             name: "Selected Area",
-            subtitle: "Choose area when recording starts",
+            subtitle: area.map { "\($0.width) x \($0.height)" } ?? "Draw area when capture starts",
             displayIndex: nil,
             displayID: nil,
             windowID: nil,
+            area: area,
             thumbnailData: nil
         )
         statusMessage = "Selected area"
     }
 
-    func requestWindow(_ action: NativeWindowCommandAction) {
-        windowCommand = NativeWindowCommand(action: action)
+    func requestInteractiveAreaSelection() {
+        selectInteractiveAreaSource()
+        isAreaSelectionActive = true
+        statusMessage = "Draw an area to capture."
+        requestWindow(.showAreaSelector)
+    }
+
+    func completeInteractiveAreaSelection(_ area: CaptureArea) {
+        isAreaSelectionActive = false
+        selectInteractiveAreaSource(area: area)
+
+        switch captureMode {
+        case .recording:
+            startRecording()
+        case .screenshot:
+            takeScreenshot()
+        }
+    }
+
+    func cancelInteractiveAreaSelection() {
+        isAreaSelectionActive = false
+        requestWindow(.closeAreaSelector)
+    }
+
+    func requestWindow(_ action: NativeWindowCommandAction, editorSession: EditorSession? = nil) {
+        windowCommand = NativeWindowCommand(action: action, editorSession: editorSession)
+    }
+
+    func showEditor(for session: EditorSession) {
+        lastEditorSession = session
+        selectedSection = .editor
+        requestWindow(.showStudio, editorSession: session)
     }
 
     func consumeWindowCommand(_ command: NativeWindowCommand?) -> NativeWindowCommand? {
@@ -118,6 +160,7 @@ final class AppModel: ObservableObject {
                         showClicks: showClicks
                     )
                     currentVideoURL = outputURL
+                    currentScreenshotURL = nil
                     captureFlow = .recording
                     statusMessage = "Recording \(selectedSource.name)"
                 } catch {
@@ -133,26 +176,26 @@ final class AppModel: ObservableObject {
         Task {
             do {
                 let outputURL = try await capture.stopRecording()
-            currentVideoURL = outputURL
+                currentVideoURL = outputURL
+                currentScreenshotURL = nil
 
-            if FileManager.default.fileExists(atPath: outputURL.path) {
-                let summary: ProjectSummary = try service.call(
-                    "registerRecording",
-                    params: [
-                        "path": outputURL.path,
-                        "sourceName": selectedSource?.name ?? "Screen Recording",
-                        "title": outputURL.deletingPathExtension().lastPathComponent
-                    ],
-                    as: ProjectSummary.self
-                )
-                projects = try service.call("listProjects", as: [ProjectSummary].self)
-                selectedSection = .editor
-                captureFlow = .recordingSetup
-                requestWindow(.showStudio)
-                statusMessage = "Saved \(summary.title)"
-            } else {
-                statusMessage = "Recording stopped before a file was written."
-            }
+                if FileManager.default.fileExists(atPath: outputURL.path) {
+                    let summary: ProjectSummary = try service.call(
+                        "registerRecording",
+                        params: [
+                            "path": outputURL.path,
+                            "sourceName": selectedSource?.name ?? "Screen Recording",
+                            "title": outputURL.deletingPathExtension().lastPathComponent
+                        ],
+                        as: ProjectSummary.self
+                    )
+                    projects = try service.call("listProjects", as: [ProjectSummary].self)
+                    captureFlow = .recordingSetup
+                    showEditor(for: EditorSession(kind: .video, url: outputURL, title: summary.title))
+                    statusMessage = "Saved \(summary.title)"
+                } else {
+                    statusMessage = "Recording stopped before a file was written."
+                }
             } catch {
                 statusMessage = error.localizedDescription
             }
@@ -176,6 +219,8 @@ final class AppModel: ObservableObject {
                 as: PreparedFile.self
             )
             currentScreenshotURL = outputURL
+            currentVideoURL = nil
+            showEditor(for: EditorSession(kind: .screenshot, url: outputURL))
             statusMessage = "Captured \(outputURL.lastPathComponent)"
         } catch {
             statusMessage = error.localizedDescription
@@ -184,9 +229,10 @@ final class AppModel: ObservableObject {
 
     func openProject(_ project: ProjectSummary) {
         if let recordingPath = project.recordingPath {
-            currentVideoURL = URL(fileURLWithPath: recordingPath)
-            selectedSection = .editor
-            requestWindow(.showStudio)
+            let recordingURL = URL(fileURLWithPath: recordingPath)
+            currentVideoURL = recordingURL
+            currentScreenshotURL = nil
+            showEditor(for: EditorSession(kind: .video, url: recordingURL, title: project.title))
             statusMessage = "Opened \(project.title)"
         } else {
             statusMessage = "Project has no recording path."
@@ -216,9 +262,10 @@ final class AppModel: ObservableObject {
                 as: ProjectDocument.self
             )
             if let recordingPath = document.recordingPath {
-                currentVideoURL = URL(fileURLWithPath: recordingPath)
-                selectedSection = .editor
-                requestWindow(.showStudio)
+                let recordingURL = URL(fileURLWithPath: recordingPath)
+                currentVideoURL = recordingURL
+                currentScreenshotURL = nil
+                showEditor(for: EditorSession(kind: .video, url: recordingURL, title: document.title))
                 statusMessage = "Opened \(document.title)"
                 refreshBackendState()
             } else {
@@ -237,9 +284,9 @@ final class AppModel: ObservableObject {
         NSWorkspace.shared.open(URL(fileURLWithPath: path))
     }
 
-    func copyScreenshotToClipboard() {
-        guard let currentScreenshotURL,
-              let image = NSImage(contentsOf: currentScreenshotURL) else {
+    func copyScreenshotToClipboard(_ screenshotURL: URL? = nil) {
+        guard let url = screenshotURL ?? currentScreenshotURL,
+              let image = NSImage(contentsOf: url) else {
             statusMessage = "No screenshot to copy."
             return
         }
@@ -249,15 +296,15 @@ final class AppModel: ObservableObject {
         statusMessage = "Screenshot copied"
     }
 
-    func exportCurrentRecording() {
-        guard let currentVideoURL else {
+    func exportCurrentRecording(_ recordingURL: URL? = nil) {
+        guard let url = recordingURL ?? currentVideoURL else {
             statusMessage = "Open a recording first."
             return
         }
 
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.mpeg4Movie, .quickTimeMovie]
-        panel.nameFieldStringValue = currentVideoURL.lastPathComponent
+        panel.nameFieldStringValue = url.lastPathComponent
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let targetURL = panel.url else {
             return
@@ -267,7 +314,7 @@ final class AppModel: ObservableObject {
             let exported: PreparedFile = try service.call(
                 "exportRecording",
                 params: [
-                    "sourcePath": currentVideoURL.path,
+                    "sourcePath": url.path,
                     "targetPath": targetURL.path
                 ],
                 as: PreparedFile.self
