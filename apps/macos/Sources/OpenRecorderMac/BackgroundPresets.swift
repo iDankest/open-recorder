@@ -474,33 +474,37 @@ extension GradientPreset {
 }
 
 enum WallpaperImageCache {
-    private static let imageCache = NSCache<NSString, NSImage>()
-    private static let cgImageCache = NSCache<NSString, CGImageBox>()
+    private static let storage = CacheStorage()
 
     static func image(for url: URL) -> NSImage? {
         let key = url.path as NSString
-        if let cached = imageCache.object(forKey: key) {
+        if let cached = storage.imageCache.object(forKey: key) {
             return cached
         }
         guard let image = NSImage(contentsOf: url) else { return nil }
-        imageCache.setObject(image, forKey: key)
+        storage.imageCache.setObject(image, forKey: key)
         return image
     }
 
     static func cgImage(for url: URL) -> CGImage? {
         let key = url.path as NSString
-        if let cached = cgImageCache.object(forKey: key) {
+        if let cached = storage.cgImageCache.object(forKey: key) {
             return cached.value
         }
         guard let image = image(for: url),
               let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return nil
         }
-        cgImageCache.setObject(CGImageBox(value: cg), forKey: key)
+        storage.cgImageCache.setObject(CGImageBox(value: cg), forKey: key)
         return cg
     }
 
-    private final class CGImageBox {
+    private final class CacheStorage: @unchecked Sendable {
+        let imageCache = NSCache<NSString, NSImage>()
+        let cgImageCache = NSCache<NSString, CGImageBox>()
+    }
+
+    private final class CGImageBox: @unchecked Sendable {
         let value: CGImage
         init(value: CGImage) { self.value = value }
     }

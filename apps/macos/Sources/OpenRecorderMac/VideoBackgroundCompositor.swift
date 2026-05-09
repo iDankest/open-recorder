@@ -30,7 +30,7 @@ struct VideoBackgroundStyling: Equatable {
     }
 }
 
-final class VideoBackgroundCompositionInstruction: NSObject, AVVideoCompositionInstructionProtocol {
+final class VideoBackgroundCompositionInstruction: NSObject, AVVideoCompositionInstructionProtocol, @unchecked Sendable {
     let timeRange: CMTimeRange
     let enablePostProcessing: Bool = false
     let containsTweening: Bool = true
@@ -76,7 +76,7 @@ enum VideoCompositorError: LocalizedError {
     }
 }
 
-final class VideoBackgroundCompositor: NSObject, AVVideoCompositing {
+final class VideoBackgroundCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     private let renderingQueue = DispatchQueue(label: "com.openrecorder.video.compositor", qos: .userInitiated)
     private let ciContext: CIContext
     private var renderContext: AVVideoCompositionRenderContext?
@@ -91,17 +91,17 @@ final class VideoBackgroundCompositor: NSObject, AVVideoCompositing {
         super.init()
     }
 
-    var sourcePixelBufferAttributes: [String: Any]? {
+    var sourcePixelBufferAttributes: [String: any Sendable]? {
         [
             kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
-            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: any Sendable]()
         ]
     }
 
-    var requiredPixelBufferAttributesForRenderContext: [String: Any] {
+    var requiredPixelBufferAttributesForRenderContext: [String: any Sendable] {
         [
             kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
-            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: any Sendable]()
         ]
     }
 
