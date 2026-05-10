@@ -16,8 +16,11 @@ struct EditorStudioView: View {
         } else {
             VideoEditorStudioView(
                 videoURL: videoURL,
+                projectPath: projectPath,
+                editorTitle: editorTitle,
                 recordingSession: recordingSession,
                 initialTimelineEdits: editorSession?.timelineEditSnapshot,
+                initialVideoState: initialVideoState,
                 editorSessionID: editorSession?.id,
                 timelineEdits: timelineEdits
             )
@@ -41,15 +44,31 @@ struct EditorStudioView: View {
     private var recordingSession: RecordingSession? {
         editorSession?.recordingSession ?? model.lastEditorSession?.recordingSession
     }
+
+    private var projectPath: String? {
+        editorSession?.projectPath ?? model.lastEditorSession?.projectPath
+    }
+
+    private var editorTitle: String? {
+        editorSession?.title ?? model.lastEditorSession?.title
+    }
+
+    private var initialVideoState: ProjectVideoEditorState? {
+        editorSession?.videoEditorState ?? model.lastEditorSession?.videoEditorState
+    }
 }
 
 struct VideoEditorStudioView: View {
     @EnvironmentObject private var model: AppModel
     var videoURL: URL?
+    var projectPath: String?
+    var editorTitle: String?
     var recordingSession: RecordingSession?
     var initialTimelineEdits: TimelineEditSnapshot?
+    var initialVideoState: ProjectVideoEditorState?
     var editorSessionID: UUID?
     @StateObject private var playback = VideoPlaybackController()
+    @StateObject private var autosave = ProjectAutosaveCoordinator()
     @ObservedObject var timelineEdits: TimelineEditController
     @State private var borderRadius = 12.0
     @State private var padding = 18.0
@@ -69,7 +88,7 @@ struct VideoEditorStudioView: View {
     @State private var videoCropSelection = VideoCropSelection.fullFrame
     @State private var previewAspectPreset: VideoPreviewAspectPreset = .auto
     @State private var appliedTimelineIdentity: String?
-    @State private var appliedCursorSettingsIdentity: String?
+    @State private var appliedVideoStateIdentity: String?
     private let sidebarWidth: CGFloat = 320
     private let timelineHeight = TimelineMetrics.compactPanelHeight
 
@@ -101,20 +120,30 @@ struct VideoEditorStudioView: View {
             presentSheet(.export)
         }
         .onChange(of: videoURL) { _, _ in
-            videoCropSelection = .fullFrame
-            previewAspectPreset = .auto
-            applyInitialTimelineEdits()
-            applyInitialCursorSettings()
+            applyInitialEditorState(markAutosaved: true)
         }
         .onChange(of: editorSessionID) { _, _ in
-            videoCropSelection = .fullFrame
-            previewAspectPreset = .auto
-            applyInitialTimelineEdits()
-            applyInitialCursorSettings()
+            applyInitialEditorState(markAutosaved: true)
+        }
+        .onChange(of: autosaveSnapshot) { _, snapshot in
+            autosave.schedule(snapshot)
         }
         .onAppear {
-            applyInitialTimelineEdits()
-            applyInitialCursorSettings()
+            autosave.configure(
+                saveHandler: { snapshot in
+                    try await model.autosaveProject(snapshot)
+                },
+                statusHandler: { status in
+                    model.handleProjectAutosaveStatus(status)
+                }
+            )
+            applyInitialEditorState(markAutosaved: true)
+        }
+        .onDisappear {
+            let snapshot = autosaveSnapshot
+            Task {
+                await autosave.flush(snapshot)
+            }
         }
         .background {
             StudioKeyDownMonitor { event in
@@ -235,19 +264,14 @@ struct VideoEditorStudioView: View {
             isExporting: model.isVideoExporting,
             initialOptions: VideoExportOptions.default.withCropSelection(videoCropSelection),
             onExport: { options in
-                let styled = options.with(
-                    background: background,
-                    padding: padding,
-                    borderRadius: borderRadius,
-                    shadow: shadow,
-                    backgroundBlur: backgroundBlur,
-                    inset: inset,
-                    insetColor: insetColor,
-                    insetOpacity: insetOpacity,
-                    insetBalance: insetBalance
-                )
-                .withCursorOverlay(cursorOverlaySettings, telemetryURL: cursorTelemetryURL)
-                model.exportCurrentRecording(model.videoExportRequestURL ?? videoURL, options: styled, edits: timelineEdits.snapshot)
+                let styled = styledExportOptions(from: options)
+                let edits = timelineEdits.snapshot
+                let recordingURL = model.videoExportRequestURL ?? videoURL
+                let snapshot = autosaveSnapshot
+                Task {
+                    await autosave.flush(snapshot)
+                    model.exportCurrentRecording(recordingURL, options: styled, edits: edits)
+                }
             },
             onRetrySave: {
                 model.retryPendingVideoExportSave()
@@ -294,11 +318,94 @@ struct VideoEditorStudioView: View {
         presentedSheet = nil
     }
 
+    private func applyInitialEditorState(markAutosaved: Bool = false) {
+        applyInitialTimelineEdits()
+        applyInitialVideoState()
+        if markAutosaved {
+            autosave.markSaved(autosaveSnapshot)
+        }
+    }
+
     private func applyInitialTimelineEdits() {
         let identity = editorSessionID?.uuidString ?? videoURL?.path ?? "empty"
         guard appliedTimelineIdentity != identity else { return }
         appliedTimelineIdentity = identity
         timelineEdits.applySnapshot(initialTimelineEdits ?? .empty)
+    }
+
+    private func applyInitialVideoState() {
+        let identity = editorSessionID?.uuidString ?? videoURL?.path ?? "empty"
+        guard appliedVideoStateIdentity != identity else { return }
+        appliedVideoStateIdentity = identity
+
+        let state = initialVideoState
+        let defaults = ProjectVideoEditorState.default
+        background = state?.background ?? defaults.background
+        padding = state?.padding ?? defaults.padding
+        borderRadius = state?.borderRadius ?? defaults.borderRadius
+        shadow = state?.shadow ?? defaults.shadow
+        backgroundBlur = state?.backgroundBlur ?? defaults.backgroundBlur
+        inset = state?.inset ?? defaults.inset
+        insetColor = state?.insetColor ?? defaults.insetColor
+        insetOpacity = state?.insetOpacity ?? defaults.insetOpacity
+        insetBalance = state?.insetBalance ?? defaults.insetBalance
+        videoCropSelection = state?.cropSelection ?? defaults.cropSelection
+        previewAspectPreset = .auto
+
+        let defaultCursor = CursorOverlaySettings(
+            isVisible: recordingSession?.showCursorOverlay ?? model.showCursor,
+            loops: defaults.cursorOverlay.loops,
+            size: defaults.cursorOverlay.size,
+            smoothing: defaults.cursorOverlay.smoothing
+        )
+        let cursor = state?.cursorOverlay ?? defaultCursor
+        showCursorOverlay = cursor.isVisible
+        loopCursor = cursor.loops
+        cursorSize = cursor.size
+        cursorSmoothing = cursor.smoothing
+    }
+
+    private func styledExportOptions(from options: VideoExportOptions) -> VideoExportOptions {
+        options.with(
+            background: background,
+            padding: padding,
+            borderRadius: borderRadius,
+            shadow: shadow,
+            backgroundBlur: backgroundBlur,
+            inset: inset,
+            insetColor: insetColor,
+            insetOpacity: insetOpacity,
+            insetBalance: insetBalance
+        )
+        .withCursorOverlay(cursorOverlaySettings, telemetryURL: cursorTelemetryURL)
+    }
+
+    private var autosaveSnapshot: ProjectAutosaveSnapshot? {
+        guard let projectPath, let videoURL else { return nil }
+        return ProjectAutosaveSnapshot(
+            projectPath: projectPath,
+            title: editorTitle ?? EditorMediaKind.video.displayTitle(for: videoURL),
+            recordingPath: videoURL.path,
+            sourceName: recordingSession?.sourceName,
+            editorState: ProjectEditorState(timelineEdits: timelineEdits.snapshot, video: currentVideoState)
+        )
+    }
+
+    private var currentVideoState: ProjectVideoEditorState {
+        ProjectVideoEditorState(
+            background: background,
+            padding: padding,
+            borderRadius: borderRadius,
+            shadow: shadow,
+            backgroundBlur: backgroundBlur,
+            inset: inset,
+            insetColor: insetColor,
+            insetOpacity: insetOpacity,
+            insetBalance: insetBalance,
+            cropSelection: videoCropSelection,
+            cursorOverlay: cursorOverlaySettings,
+            facecamSettings: recordingSession?.facecamSettings
+        )
     }
 
     private var cursorOverlaySettings: CursorOverlaySettings {
@@ -319,18 +426,6 @@ struct VideoEditorStudioView: View {
         guard let videoURL else { return nil }
         let derivedURL = CursorTelemetryRecorder.telemetryURL(for: videoURL)
         return FileManager.default.fileExists(atPath: derivedURL.path) ? derivedURL : nil
-    }
-
-    private func applyInitialCursorSettings() {
-        let identity = editorSessionID?.uuidString ?? recordingSession?.screenVideoPath ?? videoURL?.path ?? "empty"
-        guard appliedCursorSettingsIdentity != identity else { return }
-        appliedCursorSettingsIdentity = identity
-
-        let defaults = CursorOverlaySettings.default
-        showCursorOverlay = recordingSession?.showCursorOverlay ?? model.showCursor
-        loopCursor = defaults.loops
-        cursorSize = defaults.size
-        cursorSmoothing = defaults.smoothing
     }
 }
 

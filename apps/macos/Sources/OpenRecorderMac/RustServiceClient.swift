@@ -23,7 +23,7 @@ enum RustServiceError: LocalizedError {
     }
 }
 
-struct RustServiceClient {
+struct RustServiceClient: Sendable {
     private struct Response<T: Decodable>: Decodable {
         var ok: Bool
         var result: T?
@@ -51,13 +51,24 @@ struct RustServiceClient {
         params: [String: Any] = [:],
         as responseType: T.Type
     ) throws -> T {
+        guard JSONSerialization.isValidJSONObject(params),
+              let paramsData = try? JSONSerialization.data(withJSONObject: params) else {
+            throw RustServiceError.invalidParameters
+        }
+
+        return try call(method, paramsData: paramsData, as: responseType)
+    }
+
+    func call<T: Decodable>(
+        _ method: String,
+        paramsData: Data,
+        as responseType: T.Type
+    ) throws -> T {
         guard let executableURL, FileManager.default.isExecutableFile(atPath: executableURL.path) else {
             throw RustServiceError.missingExecutable
         }
 
-        guard JSONSerialization.isValidJSONObject(params),
-              let paramsData = try? JSONSerialization.data(withJSONObject: params),
-              let paramsString = String(data: paramsData, encoding: .utf8) else {
+        guard let paramsString = String(data: paramsData, encoding: .utf8) else {
             throw RustServiceError.invalidParameters
         }
 

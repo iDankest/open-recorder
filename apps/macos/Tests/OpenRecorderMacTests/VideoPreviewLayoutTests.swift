@@ -94,6 +94,32 @@ final class VideoPreviewLayoutTests: XCTestCase {
         XCTAssertEqual(rect.height, 675, accuracy: 0.001)
     }
 
+    func testPlainPreviewUsesBlackLetterboxFill() {
+        let fill = PreviewStageLayout.letterboxFill(
+            background: .transparent,
+            inset: 0,
+            insetOpacity: 1
+        )
+
+        XCTAssertEqual(fill, .black)
+    }
+
+    func testStyledPreviewUsesClearLetterboxFill() {
+        let backgroundFill = PreviewStageLayout.letterboxFill(
+            background: .solid(SerializableColor(hex: "#FF0000")),
+            inset: 0,
+            insetOpacity: 1
+        )
+        let insetFill = PreviewStageLayout.letterboxFill(
+            background: .transparent,
+            inset: 30,
+            insetOpacity: 1
+        )
+
+        XCTAssertEqual(backgroundFill, .clear)
+        XCTAssertEqual(insetFill, .clear)
+    }
+
     func testInsetGeometryUsesBalanceToDistributeFreeSpace() {
         let rect = VideoInsetGeometry.contentRect(
             in: CGRect(x: 10, y: 20, width: 200, height: 100),

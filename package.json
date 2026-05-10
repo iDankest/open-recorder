@@ -1,6 +1,7 @@
 {
 	"name": "open-recorder",
 	"private": true,
+	"license": "Apache-2.0",
 	"packageManager": "pnpm@10.17.1",
 	"scripts": {
 		"dev": "make dev-macos",

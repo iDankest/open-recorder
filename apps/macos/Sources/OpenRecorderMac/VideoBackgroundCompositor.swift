@@ -6,7 +6,7 @@ import CoreVideo
 import Foundation
 import Metal
 
-struct VideoInsetBalance: Equatable {
+struct VideoInsetBalance: Equatable, Hashable, Codable {
     var left: Double
     var top: Double
 

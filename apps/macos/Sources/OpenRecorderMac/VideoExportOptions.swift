@@ -4,7 +4,7 @@ import CoreGraphics
 import Foundation
 import UniformTypeIdentifiers
 
-enum VideoExportResolution: String, CaseIterable, Identifiable {
+enum VideoExportResolution: String, CaseIterable, Identifiable, Codable, Hashable {
     case source
     case twoK
     case fourK

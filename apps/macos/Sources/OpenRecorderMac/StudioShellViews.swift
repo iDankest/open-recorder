@@ -203,8 +203,8 @@ struct StudioNavButton: View {
             }
             .frame(height: 30)
             .padding(.horizontal, 10)
-            .foregroundStyle(isActive ? Color.brand : Color.secondary)
-            .background(isActive ? Color.brand.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 7))
+            .foregroundStyle(isActive ? Color.white : Color.secondary)
+            .background(isActive ? Color.brand : Color.clear, in: RoundedRectangle(cornerRadius: 7))
         }
     }
 }

@@ -704,8 +704,8 @@ extension Color {
     static let studioCard = Color(red: 0.10, green: 0.10, blue: 0.12)
     static let studioControl = Color(red: 0.12, green: 0.12, blue: 0.145)
     static let studioBorder = Color.white.opacity(0.10)
-    static let timelineClip = Color(red: 0.58, green: 0.78, blue: 0.96)
-    static let timelineClipForeground = Color(red: 0.035, green: 0.075, blue: 0.13).opacity(0.86)
-    static let timelineClipBorder = Color(red: 0.72, green: 0.88, blue: 1.0).opacity(0.78)
-    static let timelineHandle = Color(red: 0.64, green: 0.84, blue: 1.0)
+    static let timelineClip = Color(red: 0.06, green: 0.34, blue: 1.0)
+    static let timelineClipForeground = Color.white.opacity(0.94)
+    static let timelineClipBorder = Color(red: 0.28, green: 0.62, blue: 1.0).opacity(0.88)
+    static let timelineHandle = Color(red: 0.34, green: 0.68, blue: 1.0)
 }

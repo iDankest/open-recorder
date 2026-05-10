@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-enum VideoCropSizing: Equatable {
+enum VideoCropSizing: Equatable, Hashable, Codable {
     case preset(VideoExportResolution)
     case custom(width: Int, height: Int)
 
@@ -24,7 +24,7 @@ enum VideoCropSizing: Equatable {
     }
 }
 
-struct VideoCropSelection: Equatable {
+struct VideoCropSelection: Equatable, Hashable, Codable {
     static let minimumPixelLength: CGFloat = 8
 
     var normalizedRect: CGRect

@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import XCTest
 @testable import OpenRecorderMac
@@ -115,5 +116,29 @@ final class VideoCropSelectionTests: XCTestCase {
         XCTAssertEqual(rect.minY, 216, accuracy: 0.001)
         XCTAssertEqual(rect.width, 960, accuracy: 0.001)
         XCTAssertEqual(rect.height, 270, accuracy: 0.001)
+    }
+
+    func testCropKeyboardArrowShortcutsMoveByOneOrTenPixels() {
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 123, modifierFlags: []), .move(dx: -1, dy: 0))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 124, modifierFlags: []), .move(dx: 1, dy: 0))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 126, modifierFlags: []), .move(dx: 0, dy: -1))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 125, modifierFlags: []), .move(dx: 0, dy: 1))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 123, modifierFlags: [.shift]), .move(dx: -10, dy: 0))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 125, modifierFlags: [.shift]), .move(dx: 0, dy: 10))
+    }
+
+    func testCropKeyboardCommandArrowShortcutsResizeByOneOrTenPixels() {
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 123, modifierFlags: [.command]), .resize(widthDelta: -1, heightDelta: 0))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 124, modifierFlags: [.command]), .resize(widthDelta: 1, heightDelta: 0))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 126, modifierFlags: [.command]), .resize(widthDelta: 0, heightDelta: 1))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 125, modifierFlags: [.command]), .resize(widthDelta: 0, heightDelta: -1))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 123, modifierFlags: [.command, .shift]), .resize(widthDelta: -10, heightDelta: 0))
+        XCTAssertEqual(VideoCropKeyboardAdjustment.make(keyCode: 126, modifierFlags: [.command, .shift]), .resize(widthDelta: 0, heightDelta: 10))
+    }
+
+    func testCropKeyboardShortcutsIgnoreUnsupportedKeysAndModifiers() {
+        XCTAssertNil(VideoCropKeyboardAdjustment.make(keyCode: 0, modifierFlags: []))
+        XCTAssertNil(VideoCropKeyboardAdjustment.make(keyCode: 123, modifierFlags: [.option]))
+        XCTAssertNil(VideoCropKeyboardAdjustment.make(keyCode: 123, modifierFlags: [.control]))
     }
 }

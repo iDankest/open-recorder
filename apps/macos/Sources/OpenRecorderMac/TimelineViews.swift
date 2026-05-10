@@ -90,17 +90,6 @@ struct TimelinePanel: View {
 
                 Spacer()
 
-                if videoURL != nil {
-                    Button {
-                        edits.regenerateAutoZooms(from: videoURL, duration: playback.duration)
-                    } label: {
-                        Label("Auto Zooms", systemImage: "plus.magnifyingglass")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                }
-
                 TimelinePreviewSpeedButton(playback: playback)
 
                 TimelineZoomSlider(

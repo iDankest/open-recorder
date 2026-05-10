@@ -384,7 +384,7 @@ enum BackgroundPresets {
         )
     }
 
-    static let `default`: BackgroundStyle = .gradient(gradients[0])
+    static let `default`: BackgroundStyle = .wallpaper(wallpapers[0])
 }
 
 enum BackgroundStylePresetKind: String, CaseIterable, Identifiable {

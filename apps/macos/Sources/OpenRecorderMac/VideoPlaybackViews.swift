@@ -122,16 +122,15 @@ struct VideoPreviewPanel: View {
     }
 
     private var cropButton: some View {
-        StudioButton(hitTarget: .capsule, help: "Crop Video", action: onCropVideo) {
-            Label("Crop Video", systemImage: "crop")
+        StudioButton(hitTarget: .capsule, help: "Crop", action: onCropVideo) {
+            Label("Crop", systemImage: "crop")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.primary.opacity(0.86))
                 .padding(.horizontal, 12)
                 .frame(height: 32)
-                .background(Color.white.opacity(0.065), in: Capsule())
                 .overlay {
                     Capsule()
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
                 }
         }
     }
@@ -194,7 +193,8 @@ struct VideoPreviewPanel: View {
                         cursorTelemetryURL: cursorTelemetryURL,
                         cursorSettings: cursorSettings,
                         cropSelection: cropSelection,
-                        sourceSize: playback.naturalVideoSize
+                        sourceSize: playback.naturalVideoSize,
+                        letterboxFill: previewLetterboxFill
                     )
                 }
                 .frame(width: recordingFrame.width, height: recordingFrame.height)
@@ -213,6 +213,14 @@ struct VideoPreviewPanel: View {
 
     private var previewAspectRatio: CGFloat {
         previewAspectPreset.aspectRatio(for: cropSelection, sourceSize: playback.naturalVideoSize)
+    }
+
+    private var previewLetterboxFill: VideoPreviewLetterboxFill {
+        PreviewStageLayout.letterboxFill(
+            background: background,
+            inset: inset,
+            insetOpacity: insetOpacity
+        )
     }
 
     @ViewBuilder
@@ -330,6 +338,16 @@ enum PreviewStageLayout {
 
         let width = availableSize.width
         return CGSize(width: width, height: width / aspectRatio)
+    }
+
+    static func letterboxFill(
+        background: BackgroundStyle,
+        inset: Double,
+        insetOpacity: Double
+    ) -> VideoPreviewLetterboxFill {
+        let hasVisibleBackground = !background.isTransparent
+        let hasVisibleInset = VideoInsetGeometry.amountRatio(fromValue: inset.rounded()) > 0 && insetOpacity > 0
+        return hasVisibleBackground || hasVisibleInset ? .clear : .black
     }
 }
 
@@ -581,6 +599,7 @@ struct PlaybackPreview: View {
     var cursorSettings: CursorOverlaySettings = .hidden
     var cropSelection: VideoCropSelection = .fullFrame
     var sourceSize: CGSize = .zero
+    var letterboxFill: VideoPreviewLetterboxFill = .black
 
     var body: some View {
         GeometryReader { proxy in
@@ -605,7 +624,7 @@ struct PlaybackPreview: View {
                 .offset(contentOffset)
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
                 .clipped()
-                .background(Color.black)
+                .background(letterboxFill.color)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
@@ -655,6 +674,18 @@ struct PlaybackPreview: View {
     private var activeZoomAnchor: UnitPoint {
         guard let effect = edits.activeZoomEffect(at: playback.currentTime) else { return .center }
         return UnitPoint(x: effect.focusX, y: effect.focusY)
+    }
+}
+
+enum VideoPreviewLetterboxFill: Equatable {
+    case black
+    case clear
+
+    var color: Color {
+        switch self {
+        case .black: .black
+        case .clear: .clear
+        }
     }
 }
 
@@ -733,7 +764,7 @@ final class PlayerLayerView: NSView {
         wantsLayer = true
         layer = AVPlayerLayer()
         playerLayer.videoGravity = .resizeAspect
-        playerLayer.backgroundColor = NSColor.black.cgColor
+        playerLayer.backgroundColor = NSColor.clear.cgColor
     }
 
     required init?(coder: NSCoder) {
@@ -741,7 +772,7 @@ final class PlayerLayerView: NSView {
         wantsLayer = true
         layer = AVPlayerLayer()
         playerLayer.videoGravity = .resizeAspect
-        playerLayer.backgroundColor = NSColor.black.cgColor
+        playerLayer.backgroundColor = NSColor.clear.cgColor
     }
 
     var playerLayer: AVPlayerLayer {

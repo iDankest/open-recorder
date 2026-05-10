@@ -634,6 +634,7 @@ final class AppModel: ObservableObject {
                         kind: .video,
                         url: outputURL,
                         title: summary.title,
+                        projectPath: summary.path,
                         recordingSession: recordingSession,
                         timelineEditSnapshot: timelineEdits
                     ))
@@ -724,7 +725,10 @@ final class AppModel: ObservableObject {
                     kind: .video,
                     url: recordingURL,
                     title: document.title,
-                    timelineEditSnapshot: document.editorState?.timelineEdits
+                    projectPath: projectURL.path,
+                    recordingSession: recordingSession(for: document, recordingURL: recordingURL),
+                    timelineEditSnapshot: document.editorState?.timelineEdits,
+                    videoEditorState: document.editorState?.video
                 ))
                 statusMessage = "Opened \(document.title)"
                 refreshBackendState()
@@ -754,6 +758,26 @@ final class AppModel: ObservableObject {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.writeObjects([image])
         statusMessage = "Screenshot copied"
+    }
+
+    func autosaveProject(_ snapshot: ProjectAutosaveSnapshot) async throws -> ProjectSummary {
+        let paramsData = try JSONEncoder().encode(ProjectUpdateRequest(snapshot: snapshot))
+        let service = service
+        return try await Task.detached(priority: .utility) {
+            try service.call("updateProject", paramsData: paramsData, as: ProjectSummary.self)
+        }.value
+    }
+
+    func handleProjectAutosaveStatus(_ status: ProjectAutosaveStatus) {
+        switch status {
+        case .saving:
+            statusMessage = "Saving..."
+        case .saved(let summary):
+            upsertProjectSummary(summary)
+            statusMessage = "Saved"
+        case .failed(let message):
+            statusMessage = "Autosave failed: \(message)"
+        }
     }
 
     func requestScreenshotExport() {
@@ -941,6 +965,29 @@ final class AppModel: ObservableObject {
         let duration = try? await asset.load(.duration)
         let seconds = duration?.seconds ?? 0
         return seconds.isFinite && seconds > 0 ? seconds : 0
+    }
+
+    private func recordingSession(for document: ProjectDocument, recordingURL: URL) -> RecordingSession {
+        let facecamURL = facecamOutputURL(for: recordingURL)
+        let existingFacecamURL = FileManager.default.fileExists(atPath: facecamURL.path) ? facecamURL : nil
+        let telemetryURL = CursorTelemetryRecorder.telemetryURL(for: recordingURL)
+        let existingTelemetryURL = FileManager.default.fileExists(atPath: telemetryURL.path) ? telemetryURL : nil
+        let videoState = document.editorState?.video
+
+        return RecordingSession(
+            screenVideoPath: recordingURL.path,
+            facecamVideoPath: existingFacecamURL?.path,
+            facecamOffsetMs: nil,
+            facecamSettings: videoState?.facecamSettings ?? defaultFacecamSettings(enabled: existingFacecamURL != nil),
+            sourceName: document.sourceName,
+            showCursorOverlay: videoState?.cursorOverlay.isVisible ?? true,
+            cursorTelemetryPath: existingTelemetryURL?.path
+        )
+    }
+
+    private func upsertProjectSummary(_ summary: ProjectSummary) {
+        projects.removeAll { $0.path == summary.path }
+        projects.insert(summary, at: 0)
     }
 
     private func jsonObject<T: Encodable>(for value: T) -> Any? {

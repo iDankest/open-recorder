@@ -214,6 +214,21 @@ fn handle_method(method: &str, params: Value) -> Result<Value, String> {
                 save_project_document(&paths, &title, recording_path, source_name, editor_state)?;
             Ok(serde_json::to_value(summary).map_err(|err| err.to_string())?)
         }
+        "updateProject" => {
+            paths.ensure()?;
+            let path = string_param(&params, "path")
+                .ok_or_else(|| "updateProject requires path".to_string())?;
+            let editor_state = params.get("editorState").cloned();
+            let summary = update_project_document(
+                &paths,
+                Path::new(&path),
+                string_param(&params, "title"),
+                string_param(&params, "recordingPath"),
+                string_param(&params, "sourceName"),
+                editor_state,
+            )?;
+            Ok(serde_json::to_value(summary).map_err(|err| err.to_string())?)
+        }
         "listProjects" => {
             paths.ensure()?;
             let projects = read_index(&paths)?
@@ -359,6 +374,76 @@ fn save_project_document(
     Ok(summary)
 }
 
+fn update_project_document(
+    paths: &InternalPaths,
+    project_path: &Path,
+    title: Option<String>,
+    recording_path: Option<String>,
+    source_name: Option<String>,
+    editor_state: Option<Value>,
+) -> Result<ProjectSummary, String> {
+    let data = fs::read_to_string(project_path).map_err(|err| err.to_string())?;
+    let existing_document: ProjectDocument =
+        serde_json::from_str(&data).map_err(|err| err.to_string())?;
+    let now = timestamp_string();
+    let project_path_string = project_path.to_string_lossy().to_string();
+
+    let title = title.unwrap_or(existing_document.title);
+    let recording_path = recording_path.or(existing_document.recording_path);
+    let source_name = source_name.or(existing_document.source_name);
+    let editor_state = editor_state.unwrap_or(existing_document.editor_state);
+
+    let document = ProjectDocument {
+        schema_version: existing_document.schema_version.max(2),
+        title: title.clone(),
+        recording_path: recording_path.clone(),
+        source_name: source_name.clone(),
+        created_at: existing_document.created_at.clone(),
+        updated_at: now.clone(),
+        editor_state,
+    };
+
+    write_json_pretty(
+        project_path,
+        &serde_json::to_value(&document).map_err(|err| err.to_string())?,
+    )?;
+
+    let mut projects = read_index(paths)?;
+    let existing_summary = projects
+        .iter()
+        .find(|project| project.path == project_path_string)
+        .cloned();
+    projects.retain(|project| project.path != project_path_string);
+
+    let summary = ProjectSummary {
+        id: existing_summary
+            .as_ref()
+            .map(|project| project.id.clone())
+            .unwrap_or_else(|| format!("project-{}", unix_timestamp_millis())),
+        title,
+        path: project_path_string,
+        recording_path: recording_path.clone(),
+        source_name,
+        created_at: existing_summary
+            .as_ref()
+            .map(|project| project.created_at.clone())
+            .unwrap_or(existing_document.created_at),
+        updated_at: now.clone(),
+        last_opened_at: existing_summary
+            .map(|project| project.last_opened_at)
+            .unwrap_or(now),
+        missing: recording_path
+            .as_ref()
+            .map(|path| !Path::new(path).exists())
+            .unwrap_or(false),
+    };
+
+    projects.insert(0, summary.clone());
+    write_index(paths, &projects)?;
+
+    Ok(summary)
+}
+
 fn read_index(paths: &InternalPaths) -> Result<Vec<ProjectSummary>, String> {
     if !paths.project_index.exists() {
         return Ok(Vec::new());
@@ -393,7 +478,19 @@ fn write_json_pretty(path: &Path, value: &Value) -> Result<(), String> {
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
     let data = serde_json::to_vec_pretty(value).map_err(|err| err.to_string())?;
-    fs::write(path, data).map_err(|err| err.to_string())
+    let tmp_path = path.with_extension(format!(
+        "{}.tmp-{}-{}",
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or("json"),
+        std::process::id(),
+        unix_timestamp_millis()
+    ));
+    fs::write(&tmp_path, data).map_err(|err| err.to_string())?;
+    fs::rename(&tmp_path, path).map_err(|err| {
+        let _ = fs::remove_file(&tmp_path);
+        err.to_string()
+    })
 }
 
 fn string_param(params: &Value, key: &str) -> Option<String> {
@@ -465,5 +562,122 @@ mod tests {
         );
         assert_eq!(string_param(&params, "count"), None);
         assert_eq!(string_param(&params, "missing"), None);
+    }
+
+    #[test]
+    fn update_project_updates_existing_file_and_preserves_created_at() {
+        let paths = test_paths("update-existing");
+        paths.ensure().unwrap();
+        let project_path = paths.projects_dir.join("demo.openrecorder");
+        let recording_path = paths
+            .recordings_dir
+            .join("demo.mp4")
+            .to_string_lossy()
+            .to_string();
+        let document = json!({
+            "schemaVersion": 2,
+            "title": "Demo",
+            "recordingPath": recording_path,
+            "sourceName": "Display 1",
+            "createdAt": "100",
+            "updatedAt": "100",
+            "editorState": { "timelineEdits": { "zoomRegions": [] } }
+        });
+        write_json_pretty(&project_path, &document).unwrap();
+        let summary = ProjectSummary {
+            id: "project-existing".to_string(),
+            title: "Demo".to_string(),
+            path: project_path.to_string_lossy().to_string(),
+            recording_path: Some(recording_path.clone()),
+            source_name: Some("Display 1".to_string()),
+            created_at: "100".to_string(),
+            updated_at: "100".to_string(),
+            last_opened_at: "150".to_string(),
+            missing: false,
+        };
+        write_index(&paths, &[summary]).unwrap();
+
+        let updated = update_project_document(
+            &paths,
+            &project_path,
+            Some("Demo Edited".to_string()),
+            Some(recording_path.clone()),
+            Some("Display 1".to_string()),
+            Some(json!({ "timelineEdits": { "clipSplitTimes": [1.25] } })),
+        )
+        .unwrap();
+
+        let saved: ProjectDocument =
+            serde_json::from_str(&fs::read_to_string(&project_path).unwrap()).unwrap();
+        assert_eq!(updated.id, "project-existing");
+        assert_eq!(updated.title, "Demo Edited");
+        assert_eq!(updated.created_at, "100");
+        assert_eq!(updated.last_opened_at, "150");
+        assert_eq!(saved.title, "Demo Edited");
+        assert_eq!(saved.created_at, "100");
+        assert_ne!(saved.updated_at, "100");
+        assert_eq!(
+            saved.editor_state["timelineEdits"]["clipSplitTimes"][0],
+            1.25
+        );
+    }
+
+    #[test]
+    fn update_project_does_not_duplicate_index_entries() {
+        let paths = test_paths("update-no-duplicates");
+        paths.ensure().unwrap();
+        let project_path = paths.projects_dir.join("demo.openrecorder");
+        let recording_path = paths
+            .recordings_dir
+            .join("demo.mp4")
+            .to_string_lossy()
+            .to_string();
+        write_json_pretty(
+            &project_path,
+            &json!({
+                "schemaVersion": 2,
+                "title": "Demo",
+                "recordingPath": recording_path,
+                "sourceName": "Display 1",
+                "createdAt": "100",
+                "updatedAt": "100",
+                "editorState": {}
+            }),
+        )
+        .unwrap();
+
+        for index in 0..2 {
+            update_project_document(
+                &paths,
+                &project_path,
+                Some(format!("Demo {index}")),
+                Some(recording_path.clone()),
+                Some("Display 1".to_string()),
+                Some(json!({ "timelineEdits": { "clipSplitTimes": [index] } })),
+            )
+            .unwrap();
+        }
+
+        let projects = read_index(&paths).unwrap();
+        let matching = projects
+            .iter()
+            .filter(|project| project.path == project_path.to_string_lossy())
+            .count();
+        assert_eq!(matching, 1);
+        assert_eq!(projects[0].title, "Demo 1");
+    }
+
+    fn test_paths(name: &str) -> InternalPaths {
+        let root = env::temp_dir().join(format!(
+            "open-recorder-service-{name}-{}",
+            unix_timestamp_millis()
+        ));
+        InternalPaths {
+            recordings_dir: root.join("Recordings"),
+            screenshots_dir: root.join("Screenshots"),
+            projects_dir: root.join("Projects"),
+            support_dir: root.join("Support"),
+            project_index: root.join("Projects").join("index.json"),
+        }
     }
 }

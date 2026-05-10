@@ -80,6 +80,13 @@ final class ScreenshotExportRendererTests: XCTestCase {
 }
 
 final class ScreenshotEditorHistoryTests: XCTestCase {
+    func testDefaultBackgroundUsesFirstWallpaper() {
+        let wallpaper = BackgroundPresets.wallpapers[0]
+
+        XCTAssertEqual(ScreenshotEditorState.default.background, .wallpaper(wallpaper))
+        XCTAssertEqual(BackgroundPresets.default.presetKind, .wallpaper)
+    }
+
     @MainActor
     func testUndoRedoBackgroundStyleChange() {
         let editor = ScreenshotEditorController()

@@ -42,6 +42,73 @@ enum VideoCropAspect: String, CaseIterable, Identifiable {
     }
 }
 
+enum VideoCropKeyboardAdjustment: Equatable {
+    case move(dx: Int, dy: Int)
+    case resize(widthDelta: Int, heightDelta: Int)
+
+    init?(event: NSEvent) {
+        guard event.type == .keyDown,
+              let adjustment = Self.make(keyCode: event.keyCode, modifierFlags: event.modifierFlags) else {
+            return nil
+        }
+        self = adjustment
+    }
+
+    static func make(keyCode: UInt16, modifierFlags: NSEvent.ModifierFlags) -> VideoCropKeyboardAdjustment? {
+        guard modifierFlags.intersection([.control, .option]).isEmpty,
+              let arrow = VideoCropKeyboardArrow(keyCode: keyCode) else {
+            return nil
+        }
+
+        let amount = modifierFlags.contains(.shift) ? 10 : 1
+        if modifierFlags.contains(.command) {
+            switch arrow {
+            case .left:
+                return .resize(widthDelta: -amount, heightDelta: 0)
+            case .right:
+                return .resize(widthDelta: amount, heightDelta: 0)
+            case .up:
+                return .resize(widthDelta: 0, heightDelta: amount)
+            case .down:
+                return .resize(widthDelta: 0, heightDelta: -amount)
+            }
+        }
+
+        switch arrow {
+        case .left:
+            return .move(dx: -amount, dy: 0)
+        case .right:
+            return .move(dx: amount, dy: 0)
+        case .up:
+            return .move(dx: 0, dy: -amount)
+        case .down:
+            return .move(dx: 0, dy: amount)
+        }
+    }
+}
+
+private enum VideoCropKeyboardArrow {
+    case left
+    case right
+    case up
+    case down
+
+    init?(keyCode: UInt16) {
+        switch keyCode {
+        case 123:
+            self = .left
+        case 124:
+            self = .right
+        case 125:
+            self = .down
+        case 126:
+            self = .up
+        default:
+            return nil
+        }
+    }
+}
+
 struct VideoCropDialog: View {
     var videoURL: URL
     var initialTime: Double
@@ -52,6 +119,7 @@ struct VideoCropDialog: View {
     @State private var draftSelection: VideoCropSelection
     @State private var sourceSize: CGSize
     @State private var aspect: VideoCropAspect = .any
+    @State private var isShortcutDropdownPresented = false
 
     init(
         videoURL: URL,
@@ -103,8 +171,17 @@ struct VideoCropDialog: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
         }
+        .overlay(alignment: .topLeading) {
+            StudioKeyDownMonitor { event in
+                handleKeyboardAdjustment(event)
+            }
+            .frame(width: 0, height: 0)
+        }
         .onAppear {
             startStillPreview()
+        }
+        .onDisappear {
+            isShortcutDropdownPresented = false
         }
         .task(id: videoURL) {
             if let loadedSize = await VideoCropMetadataLoader.sourceSize(for: videoURL) {
@@ -130,30 +207,6 @@ struct VideoCropDialog: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.62))
             CropNumberField(value: heightBinding)
-
-            Menu {
-                Button("Source") {
-                    draftSelection = draftSelection.withSizing(.preset(.source))
-                }
-                Button("2K") {
-                    draftSelection = draftSelection.withSizing(.preset(.twoK))
-                }
-                Button("4K") {
-                    draftSelection = draftSelection.withSizing(.preset(.fourK))
-                }
-                Button("Custom") {
-                    setCustomSizingFromCurrentRect()
-                }
-            } label: {
-                Label(draftSelection.sizing.title, systemImage: "rectangle.on.rectangle")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(height: 36)
-                    .padding(.horizontal, 10)
-                    .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 7))
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
 
             Menu {
                 ForEach(VideoCropAspect.allCases) { option in
@@ -197,14 +250,23 @@ struct VideoCropDialog: View {
             .buttonStyle(.plain)
             .foregroundStyle(.white)
 
-            Button {} label: {
+            Button {
+                isShortcutDropdownPresented.toggle()
+            } label: {
                 Image(systemName: "keyboard")
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 36, height: 36)
                     .foregroundStyle(.white.opacity(0.88))
+                    .background(
+                        Color.white.opacity(isShortcutDropdownPresented ? 0.13 : 0.07),
+                        in: RoundedRectangle(cornerRadius: 7)
+                    )
             }
             .buttonStyle(.plain)
             .help("Keyboard shortcuts")
+            .popover(isPresented: $isShortcutDropdownPresented, arrowEdge: .top) {
+                VideoCropKeyboardShortcutsDropdown()
+            }
         }
     }
 
@@ -287,13 +349,17 @@ struct VideoCropDialog: View {
     }
 
     private func setCropSize(width: Int, height: Int) {
+        setCropSize(width: CGFloat(width), height: CGFloat(height))
+    }
+
+    private func setCropSize(width: CGFloat, height: CGFloat) {
         let safeSize = effectiveSourceSize
         let rect = currentPixelRect
         var nextRect = CGRect(
             x: rect.minX,
             y: rect.minY,
-            width: CGFloat(max(width, Int(VideoCropSelection.minimumPixelLength))),
-            height: CGFloat(max(height, Int(VideoCropSelection.minimumPixelLength)))
+            width: max(width, VideoCropSelection.minimumPixelLength),
+            height: max(height, VideoCropSelection.minimumPixelLength)
         )
         if let ratio = aspect.ratio(for: draftSelection, sourceSize: safeSize) {
             nextRect = aspectAdjustedRect(nextRect, ratio: ratio)
@@ -311,12 +377,30 @@ struct VideoCropDialog: View {
         draftSelection = draftSelection.withPixelRect(nextRect, in: safeSize)
     }
 
-    private func setCustomSizingFromCurrentRect() {
+    private func handleKeyboardAdjustment(_ event: NSEvent) -> Bool {
+        guard let adjustment = VideoCropKeyboardAdjustment(event: event) else { return false }
+        applyKeyboardAdjustment(adjustment)
+        return true
+    }
+
+    private func applyKeyboardAdjustment(_ adjustment: VideoCropKeyboardAdjustment) {
+        switch adjustment {
+        case .move(let dx, let dy):
+            moveCropSelection(dx: dx, dy: dy)
+        case .resize(let widthDelta, let heightDelta):
+            resizeCropSelection(widthDelta: widthDelta, heightDelta: heightDelta)
+        }
+    }
+
+    private func moveCropSelection(dx: Int, dy: Int) {
+        let safeSize = effectiveSourceSize
+        let nextRect = currentPixelRect.offsetBy(dx: CGFloat(dx), dy: CGFloat(dy))
+        draftSelection = draftSelection.withPixelRect(nextRect, in: safeSize)
+    }
+
+    private func resizeCropSelection(widthDelta: Int, heightDelta: Int) {
         let rect = currentPixelRect
-        draftSelection = draftSelection.withSizing(.custom(
-            width: Int(rect.width.rounded()),
-            height: Int(rect.height.rounded())
-        ))
+        setCropSize(width: rect.width + CGFloat(widthDelta), height: rect.height + CGFloat(heightDelta))
     }
 
     private func applyAspect(_ option: VideoCropAspect) {
@@ -355,6 +439,70 @@ struct VideoCropDialog: View {
             playback.pause()
         }
     }
+}
+
+private struct VideoCropKeyboardShortcutsDropdown: View {
+    private let shortcuts = [
+        VideoCropShortcutHelpItem(keys: "←", action: "Move left by 1px"),
+        VideoCropShortcutHelpItem(keys: "→", action: "Move right by 1px"),
+        VideoCropShortcutHelpItem(keys: "↑", action: "Move up by 1px"),
+        VideoCropShortcutHelpItem(keys: "↓", action: "Move down by 1px"),
+        VideoCropShortcutHelpItem(keys: "⇧ ←", action: "Move left by 10px"),
+        VideoCropShortcutHelpItem(keys: "⇧ →", action: "Move right by 10px"),
+        VideoCropShortcutHelpItem(keys: "⇧ ↑", action: "Move up by 10px"),
+        VideoCropShortcutHelpItem(keys: "⇧ ↓", action: "Move down by 10px"),
+        VideoCropShortcutHelpItem(keys: "⌘ ←", action: "Reduce width by 1px"),
+        VideoCropShortcutHelpItem(keys: "⌘ →", action: "Increase width by 1px"),
+        VideoCropShortcutHelpItem(keys: "⌘ ↑", action: "Increase height by 1px"),
+        VideoCropShortcutHelpItem(keys: "⌘ ↓", action: "Reduce height by 1px"),
+        VideoCropShortcutHelpItem(keys: "⌘ ⇧ ←", action: "Reduce width by 10px"),
+        VideoCropShortcutHelpItem(keys: "⌘ ⇧ →", action: "Increase width by 10px"),
+        VideoCropShortcutHelpItem(keys: "⌘ ⇧ ↑", action: "Increase height by 10px"),
+        VideoCropShortcutHelpItem(keys: "⌘ ⇧ ↓", action: "Reduce height by 10px")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(shortcuts) { shortcut in
+                HStack(spacing: 12) {
+                    Text(shortcut.keys)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.92))
+                        .lineLimit(1)
+                        .frame(width: 54, height: 24)
+                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 5))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        }
+
+                    Text(shortcut.action)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.64))
+                        .lineLimit(1)
+
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .padding(14)
+        .frame(width: 260)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(red: 0.10, green: 0.13, blue: 0.16))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        }
+    }
+}
+
+private struct VideoCropShortcutHelpItem: Identifiable {
+    var keys: String
+    var action: String
+
+    var id: String { keys }
 }
 
 private struct VideoCropCanvas: View {

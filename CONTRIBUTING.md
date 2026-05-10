@@ -65,6 +65,6 @@ If you encounter a bug or have a feature request, please open an issue in the [I
 
 ## License
 
-By contributing to this project, you agree that your contributions will be licensed under the [MIT License](./LICENSE).
+By contributing to this project, you agree that your contributions will be licensed under the [Apache License 2.0](./LICENSE).
 
 Thank you for your contributions!

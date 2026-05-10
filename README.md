@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-111827?style=for-the-badge" alt="macOS" />
   <img src="https://img.shields.io/badge/Swift%20%2B%20Rust-2563eb?style=for-the-badge" alt="Swift and Rust" />
-  <img src="https://img.shields.io/badge/open%20source-MIT-2563eb?style=for-the-badge" alt="MIT license" />
+  <img src="https://img.shields.io/badge/open%20source-Apache%202.0-2563eb?style=for-the-badge" alt="Apache 2.0 license" />
 </p>
 
 Open Recorder is now a macOS-only screen recorder, screenshot tool, and lightweight editor built as a native Swift app backed by a Rust service.
@@ -106,4 +106,4 @@ Screen recording requires macOS Screen Recording permission for the app process.
 
 ## License
 
-Open Recorder is licensed under the MIT License.
+Open Recorder is licensed under the Apache License 2.0.

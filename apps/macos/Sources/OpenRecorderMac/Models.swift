@@ -76,7 +76,7 @@ struct PreparedFile: Codable {
     var path: String
 }
 
-struct ProjectSummary: Codable, Identifiable, Hashable {
+struct ProjectSummary: Codable, Identifiable, Hashable, Sendable {
     var id: String
     var title: String
     var path: String
@@ -98,22 +98,103 @@ struct ProjectDocument: Codable {
     var editorState: ProjectEditorState?
 }
 
-struct ProjectEditorState: Codable, Hashable {
+struct ProjectEditorState: Codable, Equatable {
     var timelineEdits: TimelineEditSnapshot
+    var video: ProjectVideoEditorState?
 
-    static let empty = ProjectEditorState(timelineEdits: .empty)
+    static let empty = ProjectEditorState(timelineEdits: .empty, video: nil)
 
-    init(timelineEdits: TimelineEditSnapshot = .empty) {
+    init(timelineEdits: TimelineEditSnapshot = .empty, video: ProjectVideoEditorState? = nil) {
         self.timelineEdits = timelineEdits
+        self.video = video
     }
 
     private enum CodingKeys: String, CodingKey {
         case timelineEdits
+        case video
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         timelineEdits = try container.decodeIfPresent(TimelineEditSnapshot.self, forKey: .timelineEdits) ?? .empty
+        video = try container.decodeIfPresent(ProjectVideoEditorState.self, forKey: .video)
+    }
+}
+
+struct ProjectVideoEditorState: Codable, Equatable, Hashable {
+    var background: BackgroundStyle
+    var padding: Double
+    var borderRadius: Double
+    var shadow: Double
+    var backgroundBlur: Double
+    var inset: Double
+    var insetColor: SerializableColor
+    var insetOpacity: Double
+    var insetBalance: VideoInsetBalance
+    var cropSelection: VideoCropSelection
+    var cursorOverlay: CursorOverlaySettings
+    var facecamSettings: FacecamSettings?
+
+    static let `default` = ProjectVideoEditorState()
+
+    init(
+        background: BackgroundStyle = BackgroundPresets.default,
+        padding: Double = 18,
+        borderRadius: Double = 12,
+        shadow: Double = 0.35,
+        backgroundBlur: Double = 0,
+        inset: Double = 0,
+        insetColor: SerializableColor = SerializableColor(hex: "#276FAA"),
+        insetOpacity: Double = 1,
+        insetBalance: VideoInsetBalance = .centered,
+        cropSelection: VideoCropSelection = .fullFrame,
+        cursorOverlay: CursorOverlaySettings = .default,
+        facecamSettings: FacecamSettings? = nil
+    ) {
+        self.background = background
+        self.padding = padding
+        self.borderRadius = borderRadius
+        self.shadow = shadow
+        self.backgroundBlur = backgroundBlur
+        self.inset = inset
+        self.insetColor = insetColor
+        self.insetOpacity = insetOpacity
+        self.insetBalance = insetBalance.clamped
+        self.cropSelection = cropSelection
+        self.cursorOverlay = cursorOverlay.clamped
+        self.facecamSettings = facecamSettings
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case background
+        case padding
+        case borderRadius
+        case shadow
+        case backgroundBlur
+        case inset
+        case insetColor
+        case insetOpacity
+        case insetBalance
+        case cropSelection
+        case cursorOverlay
+        case facecamSettings
+    }
+
+    init(from decoder: Decoder) throws {
+        let defaults = Self.default
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        background = try container.decodeIfPresent(BackgroundStyle.self, forKey: .background) ?? defaults.background
+        padding = try container.decodeIfPresent(Double.self, forKey: .padding) ?? defaults.padding
+        borderRadius = try container.decodeIfPresent(Double.self, forKey: .borderRadius) ?? defaults.borderRadius
+        shadow = try container.decodeIfPresent(Double.self, forKey: .shadow) ?? defaults.shadow
+        backgroundBlur = try container.decodeIfPresent(Double.self, forKey: .backgroundBlur) ?? defaults.backgroundBlur
+        inset = try container.decodeIfPresent(Double.self, forKey: .inset) ?? defaults.inset
+        insetColor = try container.decodeIfPresent(SerializableColor.self, forKey: .insetColor) ?? defaults.insetColor
+        insetOpacity = try container.decodeIfPresent(Double.self, forKey: .insetOpacity) ?? defaults.insetOpacity
+        insetBalance = (try container.decodeIfPresent(VideoInsetBalance.self, forKey: .insetBalance) ?? defaults.insetBalance).clamped
+        cropSelection = try container.decodeIfPresent(VideoCropSelection.self, forKey: .cropSelection) ?? defaults.cropSelection
+        cursorOverlay = (try container.decodeIfPresent(CursorOverlaySettings.self, forKey: .cursorOverlay) ?? defaults.cursorOverlay).clamped
+        facecamSettings = try container.decodeIfPresent(FacecamSettings.self, forKey: .facecamSettings)
     }
 }
 
@@ -161,24 +242,30 @@ struct EditorSession: Codable, Hashable, Identifiable {
     var id: UUID
     var kind: EditorMediaKind
     var path: String
+    var projectPath: String?
     var title: String
     var recordingSession: RecordingSession?
     var timelineEditSnapshot: TimelineEditSnapshot?
+    var videoEditorState: ProjectVideoEditorState?
 
     init(
         kind: EditorMediaKind,
         url: URL,
         title: String? = nil,
         id: UUID = UUID(),
+        projectPath: String? = nil,
         recordingSession: RecordingSession? = nil,
-        timelineEditSnapshot: TimelineEditSnapshot? = nil
+        timelineEditSnapshot: TimelineEditSnapshot? = nil,
+        videoEditorState: ProjectVideoEditorState? = nil
     ) {
         self.id = id
         self.kind = kind
         self.path = url.path
+        self.projectPath = projectPath
         self.title = title ?? kind.displayTitle(for: url)
         self.recordingSession = recordingSession
         self.timelineEditSnapshot = timelineEditSnapshot
+        self.videoEditorState = videoEditorState
     }
 
     var url: URL {
