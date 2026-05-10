@@ -10,14 +10,15 @@ struct AreaSelectionWindowView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var dragStart: CGPoint?
     @State private var dragCurrent: CGPoint?
+    @State private var isFinishingSelection = false
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .topLeading) {
-                Color.black.opacity(0.28)
+                Color.black.opacity(isFinishingSelection ? 0 : 0.28)
                     .ignoresSafeArea()
 
-                if let selectionRect {
+                if !isFinishingSelection, let selectionRect {
                     Rectangle()
                         .fill(Color.clear)
                         .overlay {
@@ -42,7 +43,7 @@ struct AreaSelectionWindowView: View {
                 .padding(.vertical, 14)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .opacity(selectionRect == nil ? 1 : 0)
+                .opacity(selectionRect == nil && !isFinishingSelection ? 1 : 0)
             }
             .rectangularHitTarget()
             .gesture(selectionGesture(in: proxy.size))
@@ -58,6 +59,7 @@ struct AreaSelectionWindowView: View {
         .onAppear {
             dragStart = nil
             dragCurrent = nil
+            isFinishingSelection = false
             DispatchQueue.main.async {
                 if !model.isAreaSelectionActive {
                     dismiss()
@@ -92,10 +94,20 @@ struct AreaSelectionWindowView: View {
                     return
                 }
 
-                dismiss()
-                dismissWindow(id: "area-selector")
                 let area = captureArea(for: rect)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    dragStart = nil
+                    dragCurrent = nil
+                    isFinishingSelection = true
+                }
+
+                DispatchQueue.main.async {
+                    dismiss()
+                    dismissWindow(id: "area-selector")
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                     model.completeInteractiveAreaSelection(area)
                 }
             }
@@ -131,4 +143,3 @@ extension FocusedValues {
         set { self[AreaSelectionFocusKey.self] = newValue }
     }
 }
-
