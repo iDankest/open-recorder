@@ -53,24 +53,32 @@ final class VideoCropSelectionTests: XCTestCase {
         XCTAssertEqual(roundTrip.height, pixelRect.height, accuracy: 0.001)
     }
 
-    func testExportOutputSizeUsesCropSourceDimensions() {
+    func testSourceExportOutputSizeUsesCropSourceDimensions() {
         let cropSize = CGSize(width: 1725, height: 965)
+        let options = VideoExportOptions(
+            resolution: .source,
+            format: .mov,
+            frameRate: .fps30,
+            styling: .none,
+            cropSelection: nil,
+            customOutputSize: nil
+        )
 
         let outputSize = VideoExportRenderer.resolvedOutputSize(
             for: cropSize,
-            options: .default
+            options: options
         )
 
         XCTAssertEqual(outputSize.width, 1724, accuracy: 0.001)
         XCTAssertEqual(outputSize.height, 964, accuracy: 0.001)
     }
 
-    func testExportOutputSizeScalesCroppedPresetByLongEdge() {
-        let cropSize = CGSize(width: 1725, height: 965)
+    func testExportOutputSizeScalesPResolutionsByShortEdge() {
+        let cropSize = CGSize(width: 1920, height: 1080)
         let options = VideoExportOptions(
-            resolution: .twoK,
+            resolution: .p720,
             format: .mov,
-            frameRate: .source,
+            frameRate: .fps30,
             styling: .none,
             cropSelection: nil,
             customOutputSize: nil
@@ -78,15 +86,15 @@ final class VideoCropSelectionTests: XCTestCase {
 
         let outputSize = VideoExportRenderer.resolvedOutputSize(for: cropSize, options: options)
 
-        XCTAssertEqual(outputSize.width, 2560, accuracy: 0.001)
-        XCTAssertEqual(outputSize.height, 1432, accuracy: 0.001)
+        XCTAssertEqual(outputSize.width, 1280, accuracy: 0.001)
+        XCTAssertEqual(outputSize.height, 720, accuracy: 0.001)
     }
 
     func testExportOutputSizeHonorsCustomEvenDimensions() {
         let options = VideoExportOptions(
             resolution: .custom,
             format: .mov,
-            frameRate: .source,
+            frameRate: .fps30,
             styling: .none,
             cropSelection: nil,
             customOutputSize: CGSize(width: 1001, height: 777)
@@ -99,6 +107,13 @@ final class VideoCropSelectionTests: XCTestCase {
 
         XCTAssertEqual(outputSize.width, 1000, accuracy: 0.001)
         XCTAssertEqual(outputSize.height, 776, accuracy: 0.001)
+    }
+
+    func testExportOptionModelsExposeRequestedPresets() {
+        XCTAssertEqual(VideoExportResolution.exportOptions.map(\.title), ["480p", "720p", "1080p", "4K"])
+        XCTAssertEqual(VideoExportFrameRate.exportOptions.map(\.title), ["15 FPS", "24 FPS", "30 FPS", "60 FPS"])
+        XCTAssertFalse(VideoExportResolution.exportOptions.contains(.source))
+        XCTAssertFalse(VideoExportFrameRate.exportOptions.contains(.source))
     }
 
     func testRendererUsesNormalizedCropRectInSourcePixels() {

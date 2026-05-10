@@ -125,17 +125,7 @@ struct TimelineSelectionSidebar: View {
             if let zoom = edits.zoomRegions.first(where: { $0.id == id }) {
                 InspectorGroup(title: "Zoom", symbolName: "plus.magnifyingglass") {
                     TimelineSelectionInfoRow(title: "Type", value: zoom.mode == .auto ? "Auto" : "Manual")
-                    InspectorSlider(
-                        title: "Depth",
-                        valueText: String(format: "%.2fx", zoom.depth),
-                        value: zoomDepthBinding(id: id),
-                        range: 1.0...5.0,
-                        step: 0.05,
-                        onEditingChanged: handleUndoTransaction
-                    )
-                    TimelineSelectionActionButton(title: "Cycle Depth", symbolName: "arrow.triangle.2.circlepath") {
-                        edits.deepenZoom(id: id)
-                    }
+                    TimelineZoomDepthPicker(depth: zoomDepthBinding(id: id))
                 }
 
                 InspectorGroup(title: "Focus", symbolName: "scope") {
@@ -352,5 +342,52 @@ private struct TimelineClipSpeedPicker: View {
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
+    }
+}
+
+private struct TimelineZoomDepthPicker: View {
+    @Binding var depth: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Depth")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(TimelineZoomDepth.label(depth))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.secondary.opacity(0.78))
+            }
+
+            HStack(spacing: 5) {
+                ForEach(TimelineZoomDepth.values, id: \.self) { value in
+                    let isSelected = abs(depth - value) < 0.001
+                    StudioButton(hitTarget: .rounded(7)) {
+                        if !isSelected {
+                            depth = value
+                        }
+                    } label: {
+                        Text(TimelineZoomDepth.label(value))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 30)
+                            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                            .background(isSelected ? Color.brand.opacity(0.18) : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 7)
+                                    .stroke(isSelected ? Color.brand.opacity(0.42) : Color.white.opacity(0.05), lineWidth: isSelected ? 1.5 : 1)
+                            }
+                    }
+                    .help("Set zoom depth to \(TimelineZoomDepth.label(value))")
+                    .accessibilityLabel("Set zoom depth to \(TimelineZoomDepth.label(value))")
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 2)
     }
 }

@@ -682,7 +682,7 @@ struct TimelineRegionRenderData: Identifiable {
         TimelineRegionRenderData(
             id: zoom.id,
             span: zoom.span,
-            label: "\(String(format: "%.1f", zoom.depth))×",
+            label: TimelineZoomDepth.label(zoom.depth),
             mode: zoom.mode
         )
     }

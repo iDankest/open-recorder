@@ -43,6 +43,33 @@ struct WindowSourceDisplayInfo: Equatable {
     var subtitle: String
 }
 
+enum ScreencaptureRegionMapper {
+    @MainActor
+    static func screencaptureArea(from area: CaptureArea) -> CaptureArea {
+        screencaptureArea(from: area, primaryDisplayFrame: primaryDisplayFrame())
+    }
+
+    static func screencaptureArea(
+        from area: CaptureArea,
+        primaryDisplayFrame: CGRect
+    ) -> CaptureArea {
+        CaptureArea(
+            x: area.x,
+            y: Int((primaryDisplayFrame.maxY - CGFloat(area.y + area.height)).rounded()),
+            width: area.width,
+            height: area.height,
+            displayID: area.displayID
+        )
+    }
+
+    @MainActor
+    private static func primaryDisplayFrame() -> CGRect {
+        NSScreen.screens.first { screen in
+            screen.frame.origin == .zero
+        }?.frame ?? NSScreen.main?.frame ?? NSScreen.screens.first?.frame ?? .zero
+    }
+}
+
 enum WindowSourceFilter {
     static func displayInfo(
         for metadata: WindowSourceMetadata,
@@ -457,7 +484,8 @@ final class CaptureController: ObservableObject {
             return source.windowID.map { ["-l\($0)"] } ?? []
         case .area:
             if let area = source.area {
-                return ["-R\(area.x),\(area.y),\(area.width),\(area.height)"]
+                let screencaptureArea = ScreencaptureRegionMapper.screencaptureArea(from: area)
+                return ["-R\(screencaptureArea.x),\(screencaptureArea.y),\(screencaptureArea.width),\(screencaptureArea.height)"]
             }
             if interactiveAreaMode == "video" {
                 return ["-Jvideo"]

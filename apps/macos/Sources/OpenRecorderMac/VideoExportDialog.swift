@@ -1,9 +1,9 @@
 import SwiftUI
 
 struct VideoExportDialog: View {
-    @State private var resolution: VideoExportResolution = .source
+    @State private var resolution: VideoExportResolution = VideoExportResolution.defaultExportOption
     @State private var format: VideoExportFormat = .mov
-    @State private var frameRate: VideoExportFrameRate = .source
+    @State private var frameRate: VideoExportFrameRate = VideoExportFrameRate.defaultExportOption
     var phase: VideoExportPhase
     var progress: Double
     var errorMessage: String?
@@ -40,9 +40,9 @@ struct VideoExportDialog: View {
         .background(Color.studioPanel)
         .onAppear {
             guard !didApplyInitialOptions else { return }
-            resolution = initialOptions.resolution
+            resolution = resolutionOptions.contains(initialOptions.resolution) ? initialOptions.resolution : VideoExportResolution.defaultExportOption
             format = initialOptions.format
-            frameRate = initialOptions.frameRate
+            frameRate = VideoExportFrameRate.exportOptions.contains(initialOptions.frameRate) ? initialOptions.frameRate : VideoExportFrameRate.defaultExportOption
             didApplyInitialOptions = true
         }
     }
@@ -99,7 +99,7 @@ struct VideoExportDialog: View {
             ExportSelectField(
                 title: "Frame Rate",
                 selection: $frameRate,
-                options: VideoExportFrameRate.allCases,
+                options: VideoExportFrameRate.exportOptions,
                 optionTitle: \.title,
                 optionDetail: \.detail,
                 isDisabled: !canEditOptions
@@ -227,10 +227,7 @@ struct VideoExportDialog: View {
     }
 
     private var resolutionOptions: [VideoExportResolution] {
-        if initialOptions.customOutputSize != nil {
-            return VideoExportResolution.allCases
-        }
-        return VideoExportResolution.allCases.filter { $0 != .custom }
+        VideoExportResolution.exportOptions
     }
 
     private var headerTitle: String {

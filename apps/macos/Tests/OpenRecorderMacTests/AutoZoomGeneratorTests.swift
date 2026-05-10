@@ -24,7 +24,7 @@ final class AutoZoomGeneratorTests: XCTestCase {
         XCTAssertEqual(zooms[0].mode, .auto)
         XCTAssertEqual(zooms[0].span.start, 0.75, accuracy: 0.001)
         XCTAssertEqual(zooms[0].span.end, 2.35, accuracy: 0.001)
-        XCTAssertEqual(zooms[0].depth, 1.8, accuracy: 0.001)
+        XCTAssertEqual(zooms[0].depth, 1.75, accuracy: 0.001)
         XCTAssertEqual(zooms[0].focusX, 0.25, accuracy: 0.001)
         XCTAssertEqual(zooms[0].focusY, 0.60, accuracy: 0.001)
         XCTAssertEqual(zooms[0].sourceClickTimestamp, 1_000)

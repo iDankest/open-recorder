@@ -138,6 +138,8 @@ final class VideoBackgroundCompositionInstruction: NSObject, AVVideoCompositionI
     let renderSize: CGSize
     let edits: TimelineEditSnapshot
     let editPlan: TimelineExportEditPlan
+    let cursorTrack: CursorTelemetryTrack?
+    let cursorSettings: CursorOverlaySettings
 
     init(
         timeRange: CMTimeRange,
@@ -148,7 +150,9 @@ final class VideoBackgroundCompositionInstruction: NSObject, AVVideoCompositionI
         cropRect: CGRect,
         renderSize: CGSize,
         edits: TimelineEditSnapshot = .empty,
-        editPlan: TimelineExportEditPlan = TimelineExportEditPlan(segments: [], outputDuration: 0)
+        editPlan: TimelineExportEditPlan = TimelineExportEditPlan(segments: [], outputDuration: 0),
+        cursorTrack: CursorTelemetryTrack? = nil,
+        cursorSettings: CursorOverlaySettings = .hidden
     ) {
         self.timeRange = timeRange
         self.requiredSourceTrackIDs = [NSNumber(value: trackID)]
@@ -159,6 +163,8 @@ final class VideoBackgroundCompositionInstruction: NSObject, AVVideoCompositionI
         self.renderSize = renderSize
         self.edits = edits
         self.editPlan = editPlan
+        self.cursorTrack = cursorTrack
+        self.cursorSettings = cursorSettings.clamped
         super.init()
     }
 }
@@ -179,11 +185,17 @@ enum VideoCompositorError: LocalizedError {
     }
 }
 
+private struct CursorGlyphImage {
+    var image: CIImage
+    var tipOffset: CGPoint
+}
+
 final class VideoBackgroundCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     private let renderingQueue = DispatchQueue(label: "com.openrecorder.video.compositor", qos: .userInitiated)
     private let ciContext: CIContext
     private var renderContext: AVVideoCompositionRenderContext?
     private let renderContextLock = NSLock()
+    private var cursorGlyphCache: [Int: CursorGlyphImage] = [:]
 
     override init() {
         if let device = MTLCreateSystemDefaultDevice() {
@@ -367,6 +379,9 @@ final class VideoBackgroundCompositor: NSObject, AVVideoCompositing, @unchecked 
             }
         }
         composed = maskedSource.composited(over: composed)
+        if let cursor = makeCursorLayer(for: instruction, compositionTime: compositionTime, contentRect: contentRect) {
+            composed = cursor.composited(over: composed)
+        }
 
         return composed.cropped(to: renderRect)
     }
@@ -384,6 +399,145 @@ final class VideoBackgroundCompositor: NSObject, AVVideoCompositing, @unchecked 
             amountRatio: styling.inset.amountRatio,
             balance: coreImageBalance
         )
+    }
+
+    private func makeCursorLayer(
+        for instruction: VideoBackgroundCompositionInstruction,
+        compositionTime: Double,
+        contentRect: CGRect
+    ) -> CIImage? {
+        let settings = instruction.cursorSettings.clamped
+        guard settings.isVisible,
+              let track = instruction.cursorTrack,
+              track.samples.isEmpty == false else {
+            return nil
+        }
+
+        let sourceTime = instruction.editPlan.sourceTime(forOutputTime: compositionTime) ?? compositionTime
+        guard let point = track.point(at: sourceTime, settings: settings) else {
+            return nil
+        }
+
+        let outputPoint = cursorOutputPoint(
+            telemetryPoint: point,
+            outputTime: compositionTime,
+            contentRect: contentRect,
+            cropRect: instruction.cropRect,
+            sourceSize: instruction.normalizedSize,
+            instruction: instruction,
+            track: track
+        )
+        let baseSize = max(14, min(52, min(contentRect.width, contentRect.height) * 0.032))
+        let cursorSize = baseSize * settings.size
+        guard let glyph = cursorGlyphImage(size: cursorSize) else {
+            return nil
+        }
+
+        return glyph.image.transformed(
+            by: CGAffineTransform(
+                translationX: outputPoint.x - glyph.tipOffset.x,
+                y: outputPoint.y - glyph.tipOffset.y
+            )
+        )
+    }
+
+    private func cursorOutputPoint(
+        telemetryPoint: CGPoint,
+        outputTime: Double,
+        contentRect: CGRect,
+        cropRect: CGRect,
+        sourceSize: CGSize,
+        instruction: VideoBackgroundCompositionInstruction,
+        track: CursorTelemetryTrack
+    ) -> CGPoint {
+        let telemetryWidth = CGFloat(max(track.width, 1))
+        let telemetryHeight = CGFloat(max(track.height, 1))
+        let sourcePoint = CGPoint(
+            x: CGFloat(telemetryPoint.x) / telemetryWidth * sourceSize.width,
+            y: CGFloat(telemetryPoint.y) / telemetryHeight * sourceSize.height
+        )
+        let cropRelativeX = sourcePoint.x - cropRect.minX
+        let cropRelativeY = sourcePoint.y - cropRect.minY
+        let scale = min(contentRect.width / max(cropRect.width, 1), contentRect.height / max(cropRect.height, 1))
+        let scaledSize = CGSize(width: cropRect.width * scale, height: cropRect.height * scale)
+        let placedRect = CGRect(
+            x: contentRect.midX - scaledSize.width / 2,
+            y: contentRect.midY - scaledSize.height / 2,
+            width: scaledSize.width,
+            height: scaledSize.height
+        )
+
+        var point = CGPoint(
+            x: placedRect.minX + cropRelativeX * scale,
+            y: placedRect.maxY - cropRelativeY * scale
+        )
+
+        if let zoomEffect = activeZoomEffect(for: instruction, at: outputTime) {
+            let focus = CGPoint(
+                x: placedRect.minX + placedRect.width * CGFloat(zoomEffect.focusX),
+                y: placedRect.minY + placedRect.height * CGFloat(1 - zoomEffect.focusY)
+            )
+            let depth = CGFloat(max(1, zoomEffect.depth))
+            point = CGPoint(
+                x: focus.x + (point.x - focus.x) * depth,
+                y: focus.y + (point.y - focus.y) * depth
+            )
+        }
+
+        point.x = min(max(point.x, 0), instruction.renderSize.width)
+        point.y = min(max(point.y, 0), instruction.renderSize.height)
+        return point
+    }
+
+    private func cursorGlyphImage(size: CGFloat) -> CursorGlyphImage? {
+        let cacheKey = Int((size * 10).rounded())
+        if let cached = cursorGlyphCache[cacheKey] {
+            return cached
+        }
+
+        let margin = max(3, size * 0.22)
+        let width = max(1, Int(ceil(size + margin * 2)))
+        let height = max(1, Int(ceil(size * 1.34 + margin * 2)))
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+
+        context.clear(CGRect(x: 0, y: 0, width: width, height: height))
+        context.translateBy(x: 0, y: CGFloat(height))
+        context.scaleBy(x: 1, y: -1)
+        context.translateBy(x: margin, y: margin)
+        context.setShadow(
+            offset: CGSize(width: 0, height: size * 0.08),
+            blur: max(2, size * 0.18),
+            color: CGColor(red: 0, green: 0, blue: 0, alpha: 0.36)
+        )
+        context.addPath(ExportCursorGlyph.path(size: size))
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.setStrokeColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0.82))
+        context.setLineWidth(max(1.5, size * 0.08))
+        context.setLineJoin(.round)
+        context.setLineCap(.round)
+        context.drawPath(using: .fillStroke)
+
+        guard let image = context.makeImage() else {
+            return nil
+        }
+
+        let glyph = CursorGlyphImage(
+            image: CIImage(cgImage: image),
+            tipOffset: CGPoint(x: margin, y: CGFloat(height) - margin)
+        )
+        cursorGlyphCache[cacheKey] = glyph
+        return glyph
     }
 
     private func makeInsetLayer(for inset: VideoInsetStyling, in rect: CGRect, cornerRadius: CGFloat) -> CIImage {

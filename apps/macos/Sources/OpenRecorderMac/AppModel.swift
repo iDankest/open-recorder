@@ -61,11 +61,13 @@ final class AppModel: ObservableObject {
     private var stopAfterRecordingStart = false
     private let countdownOverlayController = RecordingCountdownOverlayController()
 
-    let service = RustServiceClient()
+    let service: RustServiceClient
     let capture: CaptureController
     private let screenRecordingPermission: ScreenRecordingPermission
     private let accessibilityPermission: AccessibilityPermission
     private let onboardingStore: OnboardingStateStore
+    private let screenshotCapture: @MainActor (CaptureSource, URL) throws -> Void
+    private let rememberScreenshot: @Sendable (URL) throws -> Void
     private let facecamRecorder = FacecamRecorder()
     private let cursorTelemetryRecorder = CursorTelemetryRecorder()
     private let captureDeviceProvider = CaptureDeviceProvider()
@@ -74,13 +76,28 @@ final class AppModel: ObservableObject {
     init(
         screenRecordingPermission: ScreenRecordingPermission = ScreenRecordingPermission(),
         accessibilityPermission: AccessibilityPermission = AccessibilityPermission(),
-        onboardingStore: OnboardingStateStore = .live
+        onboardingStore: OnboardingStateStore = .live,
+        screenshotCapture: (@MainActor (CaptureSource, URL) throws -> Void)? = nil,
+        rememberScreenshot: (@Sendable (URL) throws -> Void)? = nil
     ) {
+        let service = RustServiceClient()
+        let capture = CaptureController(screenRecordingPermission: screenRecordingPermission)
         self.createZoomsAutomatically = UserDefaults.standard.object(forKey: Self.createZoomsAutomaticallyDefaultsKey) as? Bool ?? true
+        self.service = service
         self.screenRecordingPermission = screenRecordingPermission
         self.accessibilityPermission = accessibilityPermission
         self.onboardingStore = onboardingStore
-        self.capture = CaptureController(screenRecordingPermission: screenRecordingPermission)
+        self.capture = capture
+        self.screenshotCapture = screenshotCapture ?? { source, outputURL in
+            try capture.takeScreenshot(source: source, outputURL: outputURL)
+        }
+        self.rememberScreenshot = rememberScreenshot ?? { outputURL in
+            let _: PreparedFile = try service.call(
+                "rememberScreenshot",
+                params: ["path": outputURL.path],
+                as: PreparedFile.self
+            )
+        }
         self.screenRecordingPermissionState = screenRecordingPermission.currentState()
         self.accessibilityPermissionState = accessibilityPermission.currentState()
     }
@@ -675,19 +692,22 @@ final class AppModel: ObservableObject {
             let ensuredPaths = try paths ?? service.call("paths", as: AppPaths.self)
             let outputURL = URL(fileURLWithPath: ensuredPaths.screenshotsDir)
                 .appendingPathComponent(timestampedFileName(prefix: "screenshot", extension: "png"))
-            try capture.takeScreenshot(source: selectedSource, outputURL: outputURL)
-            let _: PreparedFile = try service.call(
-                "rememberScreenshot",
-                params: ["path": outputURL.path],
-                as: PreparedFile.self
-            )
+            try screenshotCapture(selectedSource, outputURL)
             currentScreenshotURL = outputURL
             currentVideoURL = nil
             showEditor(for: EditorSession(kind: .screenshot, url: outputURL))
             statusMessage = "Captured \(outputURL.lastPathComponent)"
+            rememberScreenshotInBackground(outputURL)
         } catch {
             setHUDPhase(.ready(.screenshot, selectedSource))
             statusMessage = error.localizedDescription
+        }
+    }
+
+    private func rememberScreenshotInBackground(_ outputURL: URL) {
+        let rememberScreenshot = rememberScreenshot
+        DispatchQueue.global(qos: .utility).async {
+            try? rememberScreenshot(outputURL)
         }
     }
 

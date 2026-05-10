@@ -67,6 +67,7 @@ struct VideoPreviewPanel: View {
     @Binding var previewAspectPreset: VideoPreviewAspectPreset
     var onCropVideo: () -> Void = {}
     var onRequestClearSelection: () -> Void = {}
+    @State private var isPreviewAspectDropdownPresented = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -89,6 +90,12 @@ struct VideoPreviewPanel: View {
                     EmptyEditorState()
                 }
             }
+            .rectangularHitTarget()
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    onRequestClearSelection()
+                }
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .studioEditorPaneChrome()
@@ -98,12 +105,6 @@ struct VideoPreviewPanel: View {
         .onChange(of: videoURL) { _, newURL in
             syncPlaybackURL(newURL)
         }
-        .rectangularHitTarget()
-        .simultaneousGesture(
-            TapGesture().onEnded {
-                onRequestClearSelection()
-            }
-        )
     }
 
     private func syncPlaybackURL(_ url: URL?) {
@@ -128,29 +129,16 @@ struct VideoPreviewPanel: View {
                 .foregroundStyle(Color.primary.opacity(0.86))
                 .padding(.horizontal, 12)
                 .frame(height: 32)
-                .overlay {
-                    Capsule()
-                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                }
         }
     }
 
     private var previewAspectMenu: some View {
-        StudioMenu(hitTarget: .capsule, help: "Preview aspect ratio") {
-            ForEach(VideoPreviewAspectPreset.allCases) { option in
-                Button {
-                    previewAspectPreset = option
-                } label: {
-                    if previewAspectPreset == option {
-                        Label(option.title, systemImage: "checkmark")
-                    } else {
-                        Text(option.title)
-                    }
-                }
-            }
+        StudioButton(hitTarget: .capsule, help: "Preview aspect ratio") {
+            isPreviewAspectDropdownPresented.toggle()
         } label: {
             HStack(spacing: 7) {
                 Text(previewAspectPreset.title)
+                    .lineLimit(1)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .semibold))
             }
@@ -158,11 +146,14 @@ struct VideoPreviewPanel: View {
             .foregroundStyle(Color.primary.opacity(0.86))
             .padding(.horizontal, 12)
             .frame(height: 32)
-            .background(Color.white.opacity(0.065), in: Capsule())
-            .overlay {
-                Capsule()
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            }
+        }
+        .popover(isPresented: $isPreviewAspectDropdownPresented, arrowEdge: .top) {
+            PreviewAspectDropdown(
+                selection: $previewAspectPreset,
+                onSelect: {
+                    isPreviewAspectDropdownPresented = false
+                }
+            )
         }
     }
 
@@ -686,6 +677,44 @@ enum VideoPreviewLetterboxFill: Equatable {
         case .black: .black
         case .clear: .clear
         }
+    }
+}
+
+private struct PreviewAspectDropdown: View {
+    @Binding var selection: VideoPreviewAspectPreset
+    var onSelect: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(VideoPreviewAspectPreset.allCases) { option in
+                Button {
+                    selection = option
+                    onSelect()
+                } label: {
+                    HStack(spacing: 10) {
+                        Text(option.title)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.primary.opacity(0.92))
+                            .lineLimit(1)
+                        Spacer(minLength: 12)
+                        if selection == option {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color.brand)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 28)
+                    .padding(.horizontal, 9)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .background(selection == option ? Color.white.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+            }
+        }
+        .padding(8)
+        .frame(width: 164)
+        .background(Color.studioPanel)
     }
 }
 

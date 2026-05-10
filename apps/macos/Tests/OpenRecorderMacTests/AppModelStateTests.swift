@@ -228,6 +228,56 @@ final class AppModelStateTests: XCTestCase {
         XCTAssertTrue(model.canStartNewCapture)
     }
 
+    func testAreaScreenshotCompletionOpensEditorEvenIfScreenshotIndexingFails() throws {
+        var capturedSources: [CaptureSource] = []
+        let screenshotsDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("open-recorder-screenshots-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: screenshotsDir)
+        }
+        let paths = AppPaths(
+            recordingsDir: screenshotsDir.path,
+            screenshotsDir: screenshotsDir.path,
+            projectsDir: screenshotsDir.path,
+            supportDir: screenshotsDir.path
+        )
+        let model = AppModel(
+            screenRecordingPermission: makeScreenRecordingPermission(isGranted: true),
+            screenshotCapture: { source, outputURL in
+                capturedSources.append(source)
+                try FileManager.default.createDirectory(
+                    at: outputURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                guard FileManager.default.createFile(atPath: outputURL.path, contents: Data("png".utf8)) else {
+                    throw TestScreenshotError.writeFailed
+                }
+            },
+            rememberScreenshot: { _ in
+                throw TestScreenshotError.rememberFailed
+            }
+        )
+        let area = CaptureArea(x: 24, y: 48, width: 320, height: 180, displayID: 7)
+
+        model.paths = paths
+        model.beginCapture(.screenshot)
+        model.requestInteractiveAreaSelection()
+        model.completeInteractiveAreaSelection(area)
+
+        let editorSession = try XCTUnwrap(model.windowCommand?.editorSession)
+        let screenshotURL = try XCTUnwrap(model.currentScreenshotURL)
+        XCTAssertEqual(capturedSources.first?.area, area)
+        XCTAssertEqual(model.hudState, .choosingMode)
+        XCTAssertEqual(model.captureFlow, .choice)
+        XCTAssertTrue(model.canStartNewCapture)
+        XCTAssertEqual(model.selectedSection, .editor)
+        XCTAssertEqual(model.windowCommand?.action, .showStudio)
+        XCTAssertEqual(editorSession.kind, .screenshot)
+        XCTAssertEqual(editorSession.url, screenshotURL)
+        XCTAssertTrue(screenshotURL.path.hasPrefix(screenshotsDir.path))
+        XCTAssertEqual(model.statusMessage, "Captured \(screenshotURL.lastPathComponent)")
+    }
+
     func testEditorSessionCanCarryRecordingSessionMetadata() {
         let url = URL(fileURLWithPath: "/tmp/example-recording.mp4")
         let recordingSession = RecordingSession(
@@ -705,4 +755,9 @@ private func makeSource() -> CaptureSource {
         area: nil,
         thumbnailData: nil
     )
+}
+
+private enum TestScreenshotError: Error {
+    case writeFailed
+    case rememberFailed
 }

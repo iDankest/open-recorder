@@ -6,15 +6,25 @@ import UniformTypeIdentifiers
 
 enum VideoExportResolution: String, CaseIterable, Identifiable, Codable, Hashable {
     case source
+    case p480
+    case p720
+    case p1080
     case twoK
     case fourK
     case custom
 
     var id: String { rawValue }
 
+    static let exportOptions: [VideoExportResolution] = [.p480, .p720, .p1080, .fourK]
+
+    static let defaultExportOption: VideoExportResolution = .p1080
+
     var title: String {
         switch self {
         case .source: "Source"
+        case .p480: "480p"
+        case .p720: "720p"
+        case .p1080: "1080p"
         case .twoK: "2K"
         case .fourK: "4K"
         case .custom: "Custom"
@@ -24,8 +34,11 @@ enum VideoExportResolution: String, CaseIterable, Identifiable, Codable, Hashabl
     var detail: String {
         switch self {
         case .source: "Keep the recording dimensions."
+        case .p480: "Scale the short edge to 480 px."
+        case .p720: "Scale the short edge to 720 px."
+        case .p1080: "Scale the short edge to 1080 px."
         case .twoK: "Scale the long edge to 2560 px."
-        case .fourK: "Scale the long edge to 3840 px."
+        case .fourK: "Scale the short edge to 2160 px."
         case .custom: "Use the crop dialog size."
         }
     }
@@ -33,6 +46,9 @@ enum VideoExportResolution: String, CaseIterable, Identifiable, Codable, Hashabl
     var fileSuffix: String {
         switch self {
         case .source: "source"
+        case .p480: "480p"
+        case .p720: "720p"
+        case .p1080: "1080p"
         case .twoK: "2k"
         case .fourK: "4k"
         case .custom: "custom"
@@ -41,10 +57,25 @@ enum VideoExportResolution: String, CaseIterable, Identifiable, Codable, Hashabl
 
     var targetLongEdge: CGFloat? {
         switch self {
-        case .source: nil
+        case .source, .p480, .p720, .p1080: nil
         case .twoK: 2560
-        case .fourK: 3840
         case .custom: nil
+        case .fourK: nil
+        }
+    }
+
+    var targetShortEdge: CGFloat? {
+        switch self {
+        case .source, .twoK, .custom:
+            nil
+        case .p480:
+            480
+        case .p720:
+            720
+        case .p1080:
+            1080
+        case .fourK:
+            2160
         }
     }
 }
@@ -81,15 +112,21 @@ enum VideoExportFormat: String, CaseIterable, Identifiable {
 
 enum VideoExportFrameRate: String, CaseIterable, Identifiable {
     case source
+    case fps15
     case fps24
     case fps30
     case fps60
 
     var id: String { rawValue }
 
+    static let exportOptions: [VideoExportFrameRate] = [.fps15, .fps24, .fps30, .fps60]
+
+    static let defaultExportOption: VideoExportFrameRate = .fps30
+
     var title: String {
         switch self {
         case .source: "Source"
+        case .fps15: "15 FPS"
         case .fps24: "24 FPS"
         case .fps30: "30 FPS"
         case .fps60: "60 FPS"
@@ -99,6 +136,7 @@ enum VideoExportFrameRate: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .source: "Keep the recording frame rate."
+        case .fps15: "Smallest file size."
         case .fps24: "Cinematic motion."
         case .fps30: "Smaller file, smooth playback."
         case .fps60: "Best for fast cursor movement."
@@ -108,6 +146,7 @@ enum VideoExportFrameRate: String, CaseIterable, Identifiable {
     var fileSuffix: String {
         switch self {
         case .source: "source-fps"
+        case .fps15: "15fps"
         case .fps24: "24fps"
         case .fps30: "30fps"
         case .fps60: "60fps"
@@ -117,6 +156,7 @@ enum VideoExportFrameRate: String, CaseIterable, Identifiable {
     private var fixedFramesPerSecond: Double? {
         switch self {
         case .source: nil
+        case .fps15: 15
         case .fps24: 24
         case .fps30: 30
         case .fps60: 60
@@ -153,9 +193,9 @@ struct VideoExportOptions: Equatable {
     var cursorTelemetryURL: URL? = nil
 
     static let `default` = VideoExportOptions(
-        resolution: .source,
+        resolution: VideoExportResolution.defaultExportOption,
         format: .mov,
-        frameRate: .source,
+        frameRate: VideoExportFrameRate.defaultExportOption,
         styling: .none,
         cropSelection: nil,
         customOutputSize: nil,
@@ -196,7 +236,9 @@ struct VideoExportOptions: Equatable {
         copy.cropSelection = selection.isPassthrough ? nil : selection
         switch selection.sizing {
         case .preset(let resolution):
-            copy.resolution = resolution
+            if !selection.isPassthrough {
+                copy.resolution = resolution
+            }
             copy.customOutputSize = nil
         case .custom(let width, let height):
             copy.resolution = .custom
@@ -415,6 +457,11 @@ enum VideoExportRenderer {
 
         let sourceWidth = max(abs(sourceSize.width), 2)
         let sourceHeight = max(abs(sourceSize.height), 2)
+        if let targetShortEdge = options.resolution.targetShortEdge {
+            let shortEdge = min(sourceWidth, sourceHeight)
+            let scale = targetShortEdge / max(shortEdge, 1)
+            return evenSize(width: sourceWidth * scale, height: sourceHeight * scale)
+        }
         guard let targetLongEdge = options.resolution.targetLongEdge else {
             return evenSize(width: sourceWidth, height: sourceHeight)
         }
@@ -512,7 +559,9 @@ enum VideoExportRenderer {
             cropRect: clampedCropRect,
             renderSize: outputSize,
             edits: edits,
-            editPlan: editPlan
+            editPlan: editPlan,
+            cursorTrack: cursorTrack,
+            cursorSettings: cursorSettings
         )
 
         let composition = AVMutableVideoComposition()
@@ -520,7 +569,7 @@ enum VideoExportRenderer {
         composition.renderSize = outputSize
         composition.frameDuration = frameDuration
         composition.instructions = [instruction]
-        if needsOverlayTool(edits: edits, cursorTrack: cursorTrack, cursorSettings: cursorSettings) {
+        if edits.annotationRegions.isEmpty == false {
             let contentRect = exportSourceContentRect(
                 renderSize: outputSize,
                 cropSize: clampedCropRect.size,
@@ -533,8 +582,8 @@ enum VideoExportRenderer {
                 sourceSize: normalizedSize,
                 edits: edits,
                 editPlan: editPlan,
-                cursorTrack: cursorTrack,
-                cursorSettings: cursorSettings
+                cursorTrack: nil,
+                cursorSettings: .hidden
             )
         }
         return composition
@@ -670,7 +719,7 @@ enum VideoExportRenderer {
         let cursorLayer = CAShapeLayer()
         cursorLayer.bounds = CGRect(x: 0, y: 0, width: cursorSize, height: cursorSize * 1.25)
         cursorLayer.anchorPoint = CGPoint(x: 0, y: 1)
-        cursorLayer.path = cursorPath(size: cursorSize)
+        cursorLayer.path = ExportCursorGlyph.path(size: cursorSize)
         cursorLayer.fillColor = NSColor.white.cgColor
         cursorLayer.strokeColor = NSColor.black.withAlphaComponent(0.82).cgColor
         cursorLayer.lineWidth = max(1.5, cursorSize * 0.08)
@@ -828,7 +877,10 @@ enum VideoExportRenderer {
         )
     }
 
-    private static func cursorPath(size: CGFloat) -> CGPath {
+}
+
+enum ExportCursorGlyph {
+    static func path(size: CGFloat) -> CGPath {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: 0, y: size * 1.18))
         path.addLine(to: CGPoint(x: 0, y: 0))

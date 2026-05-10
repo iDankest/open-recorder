@@ -1,7 +1,7 @@
 import Foundation
 
 enum AutoZoomGenerator {
-    static let defaultDepth = 1.8
+    static let defaultDepth = TimelineZoomDepth.defaultDepth
     static let leadInSeconds = 0.25
     static let holdAfterClickSeconds = 1.35
     static let mergeThresholdSeconds = 0.9

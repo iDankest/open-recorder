@@ -352,11 +352,11 @@ final class TimelineEditingPlanTests: XCTestCase {
         edits.redo()
         XCTAssertEqual(edits.clipSpeed(index: 0), 1.5)
 
-        edits.updateZoomDepth(id: zoomID, depth: 3.5)
-        XCTAssertEqual(edits.zoomRegions[0].depth, 3.5, accuracy: 0.001)
+        edits.updateZoomDepth(id: zoomID, depth: 2.0)
+        XCTAssertEqual(edits.zoomRegions[0].depth, 2.0, accuracy: 0.001)
 
         edits.undo()
-        XCTAssertEqual(edits.zoomRegions[0].depth, 1.8, accuracy: 0.001)
+        XCTAssertEqual(edits.zoomRegions[0].depth, 1.75, accuracy: 0.001)
 
         edits.select(.zoom, id: zoomID)
         edits.deleteSelection()

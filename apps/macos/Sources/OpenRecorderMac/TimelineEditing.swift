@@ -12,6 +12,31 @@ enum TimelineZoomMode: String, Codable, Hashable {
     case manual
 }
 
+enum TimelineZoomDepth {
+    static let defaultDepth = 1.75
+    static let values = [1.0, 1.25, 1.5, 1.75, 2.0]
+
+    static func normalized(_ depth: Double) -> Double {
+        guard depth.isFinite else { return defaultDepth }
+        return values.min { abs($0 - depth) < abs($1 - depth) } ?? defaultDepth
+    }
+
+    static func label(_ depth: Double) -> String {
+        guard depth.isFinite else { return label(defaultDepth) }
+        let roundedWhole = depth.rounded()
+        if abs(roundedWhole - depth) < 0.001 {
+            return "\(Int(roundedWhole))x"
+        }
+
+        let roundedTenth = (depth * 10).rounded() / 10
+        if abs(roundedTenth - depth) < 0.001 {
+            return String(format: "%.1fx", depth)
+        }
+
+        return String(format: "%.2fx", depth)
+    }
+}
+
 enum TimelineRegionKind: String, CaseIterable, Identifiable {
     case zoom
     case trim
@@ -58,7 +83,7 @@ struct TimelineSpan: Codable, Equatable, Hashable {
 struct TimelineZoomRegion: Identifiable, Codable, Equatable, Hashable {
     var id = TimelineRegionID()
     var span: TimelineSpan
-    var depth: Double = 1.8
+    var depth: Double = TimelineZoomDepth.defaultDepth
     var focusX: Double = 0.5
     var focusY: Double = 0.5
     var mode: TimelineZoomMode = .manual
@@ -67,7 +92,7 @@ struct TimelineZoomRegion: Identifiable, Codable, Equatable, Hashable {
     init(
         id: TimelineRegionID = TimelineRegionID(),
         span: TimelineSpan,
-        depth: Double = 1.8,
+        depth: Double = TimelineZoomDepth.defaultDepth,
         focusX: Double = 0.5,
         focusY: Double = 0.5,
         mode: TimelineZoomMode = .manual,
@@ -96,7 +121,7 @@ struct TimelineZoomRegion: Identifiable, Codable, Equatable, Hashable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(TimelineRegionID.self, forKey: .id) ?? TimelineRegionID()
         span = try container.decode(TimelineSpan.self, forKey: .span)
-        depth = try container.decodeIfPresent(Double.self, forKey: .depth) ?? 1.8
+        depth = try container.decodeIfPresent(Double.self, forKey: .depth) ?? TimelineZoomDepth.defaultDepth
         focusX = try container.decodeIfPresent(Double.self, forKey: .focusX) ?? 0.5
         focusY = try container.decodeIfPresent(Double.self, forKey: .focusY) ?? 0.5
         mode = try container.decodeIfPresent(TimelineZoomMode.self, forKey: .mode) ?? .manual
@@ -540,7 +565,7 @@ final class TimelineEditController: ObservableObject {
 
     func deepenZoom(id: TimelineRegionID) {
         let before = editState
-        let values = [1.25, 1.5, 1.8, 2.2, 3.5, 5.0]
+        let values = TimelineZoomDepth.values
         mutate(&zoomRegions, id: id) { region in
             let nearest = values.enumerated().min { abs($0.element - region.depth) < abs($1.element - region.depth) }?.offset ?? 1
             region.depth = values[(nearest + 1) % values.count]
