@@ -277,6 +277,38 @@ struct EditorSession: Codable, Hashable, Identifiable {
     }
 }
 
+enum FacecamAnchor: String, CaseIterable, Identifiable, Codable, Hashable {
+    case topLeft = "top-left"
+    case top = "top"
+    case topRight = "top-right"
+    case left
+    case center
+    case right
+    case bottomLeft = "bottom-left"
+    case bottom
+    case bottomRight = "bottom-right"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .topLeft: "Top left"
+        case .top: "Top"
+        case .topRight: "Top right"
+        case .left: "Left"
+        case .center: "Center"
+        case .right: "Right"
+        case .bottomLeft: "Bottom left"
+        case .bottom: "Bottom"
+        case .bottomRight: "Bottom right"
+        }
+    }
+
+    static func resolve(_ rawValue: String) -> FacecamAnchor {
+        FacecamAnchor(rawValue: rawValue) ?? .bottomRight
+    }
+}
+
 struct FacecamSettings: Codable, Hashable {
     var enabled: Bool
     var shape: String
@@ -286,6 +318,37 @@ struct FacecamSettings: Codable, Hashable {
     var borderColor: String
     var margin: Double
     var anchor: String
+
+    var clamped: FacecamSettings {
+        FacecamSettings(
+            enabled: enabled,
+            shape: normalizedShape,
+            size: max(12, min(size, 40)),
+            cornerRadius: max(0, min(cornerRadius, 100)),
+            borderWidth: max(0, min(borderWidth, 16)),
+            borderColor: normalizedBorderColor,
+            margin: max(0, min(margin, 12)),
+            anchor: FacecamAnchor.resolve(anchor).rawValue
+        )
+    }
+
+    var resolvedAnchor: FacecamAnchor {
+        FacecamAnchor.resolve(anchor)
+    }
+
+    var normalizedShape: String {
+        let value = shape.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return value.isEmpty ? "circle" : value
+    }
+
+    var isCircle: Bool {
+        normalizedShape == "circle"
+    }
+
+    private var normalizedBorderColor: String {
+        let value = borderColor.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? "#FFFFFF" : value
+    }
 }
 
 struct RecordingSession: Codable, Hashable {

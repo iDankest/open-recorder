@@ -18,6 +18,10 @@ struct SettingsInspector: View {
     @Binding var loopCursor: Bool
     @Binding var cursorSize: Double
     @Binding var cursorSmoothing: Double
+    @Binding var facecamEnabled: Bool
+    @Binding var facecamSize: Double
+    @Binding var facecamBorderWidth: Double
+    @Binding var facecamAnchor: String
     var recordingSession: RecordingSession?
 
     @State private var activeTab: InspectorTab = .appearance
@@ -144,16 +148,16 @@ struct SettingsInspector: View {
             InspectorSlider(title: "Size", valueText: String(format: "%.2fx", cursorSize), value: $cursorSize, range: 0.5...10, step: 0.05)
             InspectorSlider(title: "Smoothing", valueText: String(format: "%.2f", cursorSmoothing), value: $cursorSmoothing, range: 0...2, step: 0.01)
         case .camera:
-            InspectorSwitch(title: "Facecam", isOn: .constant(hasRecordedCamera), isInteractive: false)
+            InspectorSwitch(title: "Facecam", isOn: $facecamEnabled, isInteractive: hasRecordedCamera)
                 .disabled(!hasRecordedCamera)
                 .opacity(hasRecordedCamera ? 1 : 0.45)
             VStack(alignment: .leading, spacing: 16) {
-                InspectorSlider(title: "Facecam Size", valueText: "24%", value: .constant(24), range: 12...40, step: 1)
-                InspectorSlider(title: "Border Width", valueText: "4px", value: .constant(4), range: 0...16, step: 1)
-                PositionGrid()
+                InspectorSlider(title: "Facecam Size", valueText: "\(Int(facecamSize.rounded()))%", value: $facecamSize, range: 12...40, step: 1)
+                InspectorSlider(title: "Border Width", valueText: "\(Int(facecamBorderWidth.rounded()))px", value: $facecamBorderWidth, range: 0...16, step: 1)
+                PositionGrid(selection: $facecamAnchor)
             }
-            .disabled(!hasRecordedCamera)
-            .opacity(hasRecordedCamera ? 1 : 0.45)
+            .disabled(!hasRecordedCamera || !facecamEnabled)
+            .opacity(hasRecordedCamera && facecamEnabled ? 1 : 0.45)
             if let path = recordingSession?.facecamVideoPath {
                 SessionAssetRow(title: "Facecam File", path: path)
             }
@@ -486,20 +490,34 @@ struct InspectorSwitch: View {
 }
 
 struct PositionGrid: View {
+    @Binding var selection: String
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Position")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.secondary)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 3), spacing: 5) {
-                ForEach(0..<9, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(index == 8 ? Color.brand.opacity(0.28) : Color.white.opacity(0.06))
-                        .frame(height: 28)
+                ForEach(FacecamAnchor.allCases) { anchor in
+                    StudioButton(hitTarget: .rounded(5), help: anchor.title) {
+                        selection = anchor.rawValue
+                    } label: {
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(isSelected(anchor) ? Color.brand.opacity(0.28) : Color.white.opacity(0.06))
+                            .frame(height: 28)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 5)
+                                    .stroke(isSelected(anchor) ? Color.brand.opacity(0.5) : Color.white.opacity(0.06))
+                            }
+                    }
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 3)
+    }
+
+    private func isSelected(_ anchor: FacecamAnchor) -> Bool {
+        FacecamAnchor.resolve(selection) == anchor
     }
 }

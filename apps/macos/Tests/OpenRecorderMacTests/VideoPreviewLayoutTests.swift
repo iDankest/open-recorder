@@ -158,4 +158,49 @@ final class VideoPreviewLayoutTests: XCTestCase {
         XCTAssertEqual(rect.width, 50, accuracy: 0.001)
         XCTAssertEqual(rect.height, 40, accuracy: 0.001)
     }
+
+    func testFacecamOverlayLayoutAnchorsInVisiblePreviewFrame() {
+        let settings = FacecamSettings(
+            enabled: true,
+            shape: "circle",
+            size: 20,
+            cornerRadius: 24,
+            borderWidth: 4,
+            borderColor: "#FFFFFF",
+            margin: 5,
+            anchor: FacecamAnchor.bottomRight.rawValue
+        )
+
+        let rect = FacecamOverlayLayout.frame(
+            in: CGSize(width: 1000, height: 500),
+            settings: settings
+        )
+
+        XCTAssertEqual(rect.width, 100, accuracy: 0.001)
+        XCTAssertEqual(rect.height, 100, accuracy: 0.001)
+        XCTAssertEqual(rect.minX, 875, accuracy: 0.001)
+        XCTAssertEqual(rect.minY, 375, accuracy: 0.001)
+    }
+
+    func testFacecamSettingsClampAndResolveAnchor() {
+        let settings = FacecamSettings(
+            enabled: true,
+            shape: "   ",
+            size: 99,
+            cornerRadius: 120,
+            borderWidth: -4,
+            borderColor: " ",
+            margin: 50,
+            anchor: "somewhere"
+        )
+        .clamped
+
+        XCTAssertEqual(settings.shape, "circle")
+        XCTAssertEqual(settings.size, 40)
+        XCTAssertEqual(settings.cornerRadius, 100)
+        XCTAssertEqual(settings.borderWidth, 0)
+        XCTAssertEqual(settings.borderColor, "#FFFFFF")
+        XCTAssertEqual(settings.margin, 12)
+        XCTAssertEqual(settings.resolvedAnchor, .bottomRight)
+    }
 }

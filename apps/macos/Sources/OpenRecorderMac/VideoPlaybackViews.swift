@@ -64,6 +64,7 @@ struct VideoPreviewPanel: View {
     var cursorTelemetryURL: URL?
     var cursorSettings: CursorOverlaySettings = .hidden
     var cropSelection: VideoCropSelection = .fullFrame
+    var facecamSettings: FacecamSettings?
     @Binding var previewAspectPreset: VideoPreviewAspectPreset
     var onCropVideo: () -> Void = {}
     var onRequestClearSelection: () -> Void = {}
@@ -184,6 +185,9 @@ struct VideoPreviewPanel: View {
                         cursorTelemetryURL: cursorTelemetryURL,
                         cursorSettings: cursorSettings,
                         cropSelection: cropSelection,
+                        facecamURL: facecamVideoURL,
+                        facecamOffsetMs: recordingSession?.facecamOffsetMs,
+                        facecamSettings: resolvedFacecamSettings,
                         sourceSize: playback.naturalVideoSize,
                         letterboxFill: previewLetterboxFill
                     )
@@ -214,9 +218,26 @@ struct VideoPreviewPanel: View {
         )
     }
 
+    private var facecamVideoURL: URL? {
+        guard let path = recordingSession?.facecamVideoPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !path.isEmpty else {
+            return nil
+        }
+        return URL(fileURLWithPath: path)
+    }
+
+    private var resolvedFacecamSettings: FacecamSettings? {
+        guard facecamVideoURL != nil else {
+            return nil
+        }
+        return (facecamSettings ?? recordingSession?.facecamSettings ?? defaultFacecamSettings(enabled: true)).clamped
+    }
+
     @ViewBuilder
     private var recordingSessionBadges: some View {
-        if let recordingSession, recordingSession.facecamVideoPath != nil {
+        if let recordingSession,
+           recordingSession.hasRecordedCamera,
+           resolvedFacecamSettings?.enabled != true {
             Label("Facecam captured", systemImage: "video.fill")
                 .font(.system(size: 11, weight: .semibold))
                 .padding(.horizontal, 10)
@@ -589,6 +610,9 @@ struct PlaybackPreview: View {
     var cursorTelemetryURL: URL?
     var cursorSettings: CursorOverlaySettings = .hidden
     var cropSelection: VideoCropSelection = .fullFrame
+    var facecamURL: URL?
+    var facecamOffsetMs: Int?
+    var facecamSettings: FacecamSettings?
     var sourceSize: CGSize = .zero
     var letterboxFill: VideoPreviewLetterboxFill = .black
 
@@ -610,17 +634,30 @@ struct PlaybackPreview: View {
                 height: centeredOffset.y - cropRect.minY * scale
             )
 
-            fullSourcePreview(size: sourceDisplaySize)
-                .frame(width: sourceDisplaySize.width, height: sourceDisplaySize.height)
-                .offset(contentOffset)
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
-                .clipped()
-                .background(letterboxFill.color)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.studioBorder)
+            ZStack(alignment: .topLeading) {
+                fullSourcePreview(size: sourceDisplaySize)
+                    .frame(width: sourceDisplaySize.width, height: sourceDisplaySize.height)
+                    .offset(contentOffset)
+                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                    .clipped()
+
+                if let facecamURL,
+                   let facecamSettings,
+                   facecamSettings.clamped.enabled {
+                    FacecamPlaybackOverlay(
+                        facecamURL: facecamURL,
+                        screenPlayback: playback,
+                        offsetMs: facecamOffsetMs,
+                        settings: facecamSettings
+                    )
                 }
+            }
+            .background(letterboxFill.color)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.studioBorder)
+            }
         }
         .onChange(of: edits) { _, newValue in
             playback.setTimelineEdits(newValue)
@@ -665,6 +702,169 @@ struct PlaybackPreview: View {
     private var activeZoomAnchor: UnitPoint {
         guard let effect = edits.activeZoomEffect(at: playback.currentTime) else { return .center }
         return UnitPoint(x: effect.focusX, y: effect.focusY)
+    }
+}
+
+struct FacecamOverlayLayout {
+    static func frame(in containerSize: CGSize, settings: FacecamSettings) -> CGRect {
+        let resolved = settings.clamped
+        guard resolved.enabled,
+              containerSize.width.isFinite,
+              containerSize.height.isFinite,
+              containerSize.width > 0,
+              containerSize.height > 0 else {
+            return .zero
+        }
+
+        let baseLength = min(containerSize.width, containerSize.height)
+        let side = max(1, baseLength * CGFloat(resolved.size / 100))
+        let margin = baseLength * CGFloat(resolved.margin / 100)
+        let halfSide = side / 2
+        let x: CGFloat
+        let y: CGFloat
+
+        switch resolved.resolvedAnchor {
+        case .topLeft, .left, .bottomLeft:
+            x = margin + halfSide
+        case .top, .center, .bottom:
+            x = containerSize.width / 2
+        case .topRight, .right, .bottomRight:
+            x = containerSize.width - margin - halfSide
+        }
+
+        switch resolved.resolvedAnchor {
+        case .topLeft, .top, .topRight:
+            y = margin + halfSide
+        case .left, .center, .right:
+            y = containerSize.height / 2
+        case .bottomLeft, .bottom, .bottomRight:
+            y = containerSize.height - margin - halfSide
+        }
+
+        return CGRect(x: x - halfSide, y: y - halfSide, width: side, height: side)
+    }
+}
+
+private struct FacecamPlaybackOverlay: View {
+    var facecamURL: URL
+    @ObservedObject var screenPlayback: VideoPlaybackController
+    var offsetMs: Int?
+    var settings: FacecamSettings
+
+    @State private var player: AVPlayer?
+    @State private var currentURL: URL?
+    @State private var duration = 0.0
+    @State private var isActiveAtCurrentTime = true
+
+    var body: some View {
+        GeometryReader { proxy in
+            let resolvedSettings = settings.clamped
+            let frame = FacecamOverlayLayout.frame(in: proxy.size, settings: resolvedSettings)
+            if let player,
+               resolvedSettings.enabled,
+               isActiveAtCurrentTime,
+               !frame.isEmpty {
+                FacecamPlayerView(player: player)
+                    .frame(width: frame.width, height: frame.height)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius(for: frame, settings: resolvedSettings), style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius(for: frame, settings: resolvedSettings), style: .continuous)
+                            .stroke(
+                                SerializableColor(hex: resolvedSettings.borderColor).color,
+                                lineWidth: CGFloat(resolvedSettings.borderWidth)
+                            )
+                    }
+                    .shadow(color: Color.black.opacity(0.34), radius: 16, y: 8)
+                    .position(x: frame.midX, y: frame.midY)
+                    .accessibilityLabel("Facecam preview")
+            }
+        }
+        .allowsHitTesting(false)
+        .onAppear {
+            loadFacecam()
+            syncPlayback(forceSeek: true)
+        }
+        .onChange(of: facecamURL) { _, _ in
+            loadFacecam()
+            syncPlayback(forceSeek: true)
+        }
+        .onChange(of: screenPlayback.currentTime) { _, _ in
+            syncPlayback(forceSeek: false)
+        }
+        .onChange(of: screenPlayback.isPlaying) { _, _ in
+            syncPlayback(forceSeek: true)
+        }
+        .onChange(of: screenPlayback.previewPlaybackSpeed) { _, _ in
+            syncPlayback(forceSeek: false)
+        }
+        .onChange(of: settings) { _, _ in
+            syncPlayback(forceSeek: false)
+        }
+        .onDisappear {
+            player?.pause()
+        }
+    }
+
+    private func loadFacecam() {
+        guard currentURL != facecamURL else { return }
+        currentURL = facecamURL
+        duration = 0
+
+        let item = AVPlayerItem(url: facecamURL)
+        let nextPlayer = AVPlayer(playerItem: item)
+        nextPlayer.isMuted = true
+        nextPlayer.automaticallyWaitsToMinimizeStalling = false
+        player = nextPlayer
+
+        let asset = AVURLAsset(url: facecamURL)
+        Task {
+            let loadedDuration = try? await asset.load(.duration)
+            let seconds = loadedDuration?.seconds ?? 0
+            await MainActor.run {
+                guard currentURL == facecamURL else { return }
+                duration = seconds.isFinite && seconds > 0 ? seconds : 0
+                syncPlayback(forceSeek: true)
+            }
+        }
+    }
+
+    private func syncPlayback(forceSeek: Bool) {
+        let targetTime = facecamTime(for: screenPlayback.currentTime)
+        let isWithinFacecam = targetTime >= 0 && (duration == 0 || targetTime <= duration + 0.05)
+        isActiveAtCurrentTime = isWithinFacecam
+
+        guard let player, isWithinFacecam else {
+            player?.pause()
+            return
+        }
+
+        let clampedTarget = min(max(targetTime, 0), duration > 0 ? duration : targetTime)
+        let currentSeconds = player.currentTime().seconds
+        if forceSeek || !currentSeconds.isFinite || abs(currentSeconds - clampedTarget) > 0.18 {
+            player.seek(
+                to: CMTime(seconds: clampedTarget, preferredTimescale: 600),
+                toleranceBefore: .zero,
+                toleranceAfter: .zero
+            )
+        }
+
+        if screenPlayback.isPlaying {
+            player.rate = Float(max(0.05, screenPlayback.effectivePlaybackRate()))
+        } else {
+            player.pause()
+        }
+    }
+
+    private func facecamTime(for screenTime: Double) -> Double {
+        screenTime - (Double(offsetMs ?? 0) / 1000)
+    }
+
+    private func cornerRadius(for frame: CGRect, settings: FacecamSettings) -> CGFloat {
+        if settings.isCircle {
+            return min(frame.width, frame.height) / 2
+        }
+
+        return min(CGFloat(settings.cornerRadius), min(frame.width, frame.height) / 2)
     }
 }
 
@@ -823,6 +1023,24 @@ struct NativeVideoPlayer: NSViewRepresentable {
 
     func updateNSView(_ nsView: PlayerLayerView, context: Context) {
         nsView.playerLayer.player = playback.player
+    }
+
+    static func dismantleNSView(_ nsView: PlayerLayerView, coordinator: ()) {
+        nsView.playerLayer.player = nil
+    }
+}
+
+struct FacecamPlayerView: NSViewRepresentable {
+    var player: AVPlayer?
+
+    func makeNSView(context: Context) -> PlayerLayerView {
+        let view = PlayerLayerView()
+        view.playerLayer.player = player
+        return view
+    }
+
+    func updateNSView(_ nsView: PlayerLayerView, context: Context) {
+        nsView.playerLayer.player = player
     }
 
     static func dismantleNSView(_ nsView: PlayerLayerView, coordinator: ()) {

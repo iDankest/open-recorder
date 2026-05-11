@@ -83,6 +83,14 @@ struct VideoEditorStudioView: View {
     @State private var loopCursor = false
     @State private var cursorSize = 1.0
     @State private var cursorSmoothing = 0.40
+    @State private var facecamEnabled = false
+    @State private var facecamShape = "circle"
+    @State private var facecamSize = 22.0
+    @State private var facecamCornerRadius = 24.0
+    @State private var facecamBorderWidth = 4.0
+    @State private var facecamBorderColor = "#FFFFFF"
+    @State private var facecamMargin = 4.0
+    @State private var facecamAnchor = FacecamAnchor.bottomRight.rawValue
     @State private var activeSheet: VideoEditorSheet?
     @State private var presentedSheet: VideoEditorSheet?
     @State private var videoCropSelection = VideoCropSelection.fullFrame
@@ -178,6 +186,7 @@ struct VideoEditorStudioView: View {
                 cursorTelemetryURL: cursorTelemetryURL,
                 cursorSettings: cursorOverlaySettings,
                 cropSelection: videoCropSelection,
+                facecamSettings: currentFacecamSettings,
                 previewAspectPreset: $previewAspectPreset,
                 onCropVideo: {
                     guard let videoURL else { return }
@@ -214,6 +223,10 @@ struct VideoEditorStudioView: View {
                 loopCursor: $loopCursor,
                 cursorSize: $cursorSize,
                 cursorSmoothing: $cursorSmoothing,
+                facecamEnabled: $facecamEnabled,
+                facecamSize: $facecamSize,
+                facecamBorderWidth: $facecamBorderWidth,
+                facecamAnchor: $facecamAnchor,
                 recordingSession: recordingSession
             )
         }
@@ -363,6 +376,20 @@ struct VideoEditorStudioView: View {
         loopCursor = cursor.loops
         cursorSize = cursor.size
         cursorSmoothing = cursor.smoothing
+
+        let facecam = (state?.facecamSettings
+            ?? recordingSession?.facecamSettings
+            ?? defaultFacecamSettings(enabled: recordingSession?.hasRecordedCamera == true))
+            .clamped
+        let hasRecordedCamera = recordingSession?.hasRecordedCamera == true
+        facecamEnabled = hasRecordedCamera && facecam.enabled
+        facecamShape = facecam.shape
+        facecamSize = facecam.size
+        facecamCornerRadius = facecam.cornerRadius
+        facecamBorderWidth = facecam.borderWidth
+        facecamBorderColor = facecam.borderColor
+        facecamMargin = facecam.margin
+        facecamAnchor = facecam.anchor
     }
 
     private func styledExportOptions(from options: VideoExportOptions) -> VideoExportOptions {
@@ -404,8 +431,26 @@ struct VideoEditorStudioView: View {
             insetBalance: insetBalance,
             cropSelection: videoCropSelection,
             cursorOverlay: cursorOverlaySettings,
-            facecamSettings: recordingSession?.facecamSettings
+            facecamSettings: currentFacecamSettings
         )
+    }
+
+    private var currentFacecamSettings: FacecamSettings? {
+        guard recordingSession?.hasRecordedCamera == true else {
+            return nil
+        }
+
+        return FacecamSettings(
+            enabled: facecamEnabled,
+            shape: facecamShape,
+            size: facecamSize,
+            cornerRadius: facecamCornerRadius,
+            borderWidth: facecamBorderWidth,
+            borderColor: facecamBorderColor,
+            margin: facecamMargin,
+            anchor: facecamAnchor
+        )
+        .clamped
     }
 
     private var cursorOverlaySettings: CursorOverlaySettings {
