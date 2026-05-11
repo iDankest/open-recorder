@@ -118,12 +118,18 @@ jobs:
             fi
           done
 
+      - name: Notarize app bundle
+        run: zsh scripts/notarize-macos-app.zsh "release/Open Recorder.app"
+
       - name: Create release artifacts
         run: |
           zsh scripts/create-macos-release-artifacts.zsh \
             --app "release/Open Recorder.app" \
             --output-dir release-upload \
             --artifact-stem "open-recorder-macos-${{ matrix.artifact_arch }}"
+
+      - name: Sign and notarize DMG artifact
+        run: zsh scripts/notarize-macos-dmg.zsh "release-upload/open-recorder-macos-${{ matrix.artifact_arch }}.dmg"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -199,11 +205,13 @@ jobs:
           find "$app" \( -name '._*' -o -name '.__CodeSignature' \) -delete
           zsh scripts/sign-macos-app.zsh "$app"
           zsh scripts/verify-macos-signature.zsh "$app"
+          zsh scripts/notarize-macos-app.zsh "$app"
 
           zsh scripts/create-macos-release-artifacts.zsh \
             --app "$app" \
             --output-dir release-upload \
             --artifact-stem open-recorder-macos-universal
+          zsh scripts/notarize-macos-dmg.zsh release-upload/open-recorder-macos-universal.dmg
           cp release-upload/open-recorder-macos-universal.zip release-upload/open-recorder-macos.zip
 
       - name: Upload universal macOS artifacts
