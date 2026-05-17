@@ -836,6 +836,31 @@ final class AppModel: ObservableObject {
         openProjectFile(at: projectURL)
     }
 
+    func openEditorFile(at url: URL) {
+        if url.pathExtension.lowercased() == "openrecorder" {
+            openProjectFile(at: url)
+            return
+        }
+
+        if EditorMediaKind.screenshot.supports(url) {
+            currentScreenshotURL = url
+            currentVideoURL = nil
+            showEditor(for: EditorSession(kind: .screenshot, url: url))
+            statusMessage = "Opened \(url.lastPathComponent)"
+            return
+        }
+
+        if EditorMediaKind.video.supports(url) {
+            currentVideoURL = url
+            currentScreenshotURL = nil
+            showEditor(for: EditorSession(kind: .video, url: url))
+            statusMessage = "Opened \(url.lastPathComponent)"
+            return
+        }
+
+        statusMessage = "Unsupported file: \(url.lastPathComponent)"
+    }
+
     func openProjectFile(at projectURL: URL) {
         do {
             let document: ProjectDocument = try service.call(

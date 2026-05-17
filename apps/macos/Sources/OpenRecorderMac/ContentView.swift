@@ -52,7 +52,7 @@ struct ContentView: View {
         .environmentObject(model)
         .preferredColorScheme(.dark)
         .onOpenURL { url in
-            model.openProjectFile(at: url)
+            model.openEditorFile(at: url)
         }
     }
 

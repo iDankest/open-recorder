@@ -6,7 +6,7 @@ import SwiftUI
 @MainActor
 final class OpenRecorderAppDelegate: NSObject, NSApplicationDelegate {
     private weak var model: AppModel?
-    private var pendingProjectURLs: [URL] = []
+    private var pendingFileURLs: [URL] = []
     private let windowActions = AppWindowActions()
     private let statusItemController = OpenRecorderStatusItemController()
     private let hotKeyController = GlobalRecordingHotKeyController()
@@ -28,8 +28,8 @@ final class OpenRecorderAppDelegate: NSObject, NSApplicationDelegate {
         } else {
             self.model = model
         }
-        pendingProjectURLs.append(contentsOf: launchArgumentProjectURLs())
-        flushPendingProjectURLs()
+        pendingFileURLs.append(contentsOf: launchArgumentFileURLs())
+        flushPendingFileURLs()
         handleWindowCommand(model.windowCommand)
     }
 
@@ -43,16 +43,16 @@ final class OpenRecorderAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
-        pendingProjectURLs.append(contentsOf: filenames.map { URL(fileURLWithPath: $0) })
-        flushPendingProjectURLs()
+        pendingFileURLs.append(contentsOf: filenames.map { URL(fileURLWithPath: $0) })
+        flushPendingFileURLs()
         sender.reply(toOpenOrPrint: .success)
     }
 
-    private func flushPendingProjectURLs() {
+    private func flushPendingFileURLs() {
         guard let model else { return }
-        let urls = pendingProjectURLs
-        pendingProjectURLs.removeAll()
-        urls.forEach { model.openProjectFile(at: $0) }
+        let urls = pendingFileURLs
+        pendingFileURLs.removeAll()
+        urls.forEach { model.openEditorFile(at: $0) }
     }
 
     private func handleWindowCommand(_ command: NativeWindowCommand?) {
@@ -65,13 +65,20 @@ final class OpenRecorderAppDelegate: NSObject, NSApplicationDelegate {
         windowActions.perform(command)
     }
 
-    private func launchArgumentProjectURLs() -> [URL] {
+    private func launchArgumentFileURLs() -> [URL] {
         CommandLine.arguments.dropFirst().compactMap { argument in
-            guard argument.hasSuffix(".openrecorder") else {
+            let url = URL(fileURLWithPath: argument)
+            guard Self.canOpenFile(at: url) else {
                 return nil
             }
-            return URL(fileURLWithPath: argument)
+            return url
         }
+    }
+
+    private static func canOpenFile(at url: URL) -> Bool {
+        url.pathExtension.lowercased() == "openrecorder"
+            || EditorMediaKind.screenshot.supports(url)
+            || EditorMediaKind.video.supports(url)
     }
 }
 
@@ -423,15 +430,17 @@ private final class OpenRecorderStatusItemController: NSObject {
 
         menu.addItem(.separator())
 
-        let checkForUpdatesItem = NSMenuItem(
-            title: "Check for Updates…",
-            action: #selector(checkForUpdates),
-            keyEquivalent: ""
-        )
-        checkForUpdatesItem.target = self
-        menu.addItem(checkForUpdatesItem)
+        if UpdateChecker.shared.isEnabled {
+            let checkForUpdatesItem = NSMenuItem(
+                title: "Check for Updates…",
+                action: #selector(checkForUpdates),
+                keyEquivalent: ""
+            )
+            checkForUpdatesItem.target = self
+            menu.addItem(checkForUpdatesItem)
 
-        menu.addItem(.separator())
+            menu.addItem(.separator())
+        }
 
         let quitItem = NSMenuItem(title: "Quit Open Recorder", action: #selector(quit), keyEquivalent: "q")
         quitItem.keyEquivalentModifierMask = [.command]

@@ -2,7 +2,6 @@ import AVFoundation
 import AppKit
 import CoreGraphics
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ScreenshotEditorStudioView: View {
     @EnvironmentObject private var model: AppModel
@@ -74,8 +73,8 @@ struct ScreenshotEditorStudioView: View {
         }
 
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.png]
         panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
         panel.nameFieldStringValue = suggestedExportFileName
 
         guard panel.runModal() == .OK, let targetURL = panel.url else {
@@ -83,8 +82,11 @@ struct ScreenshotEditorStudioView: View {
         }
 
         do {
-            try data.write(to: targetURL, options: .atomic)
-            model.statusMessage = "Exported \(targetURL.lastPathComponent)"
+            let resolvedURL = targetURL.pathExtension.isEmpty
+                ? targetURL.appendingPathExtension("png")
+                : targetURL
+            try data.write(to: resolvedURL, options: .atomic)
+            model.statusMessage = "Exported \(resolvedURL.lastPathComponent)"
         } catch {
             model.statusMessage = error.localizedDescription
         }
@@ -156,8 +158,10 @@ struct ScreenshotExportDialog: View {
 
             VStack(spacing: 8) {
                 StudioButton(hitTarget: .rounded(8)) {
-                    onSave()
                     dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        onSave()
+                    }
                 } label: {
                     Label("Save", systemImage: "square.and.arrow.down")
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -217,30 +221,79 @@ struct ScreenshotCanvas: View {
     }
 
     private func screenshotStage(_ image: NSImage) -> some View {
-        ZStack {
-            BackgroundFillView(style: background)
-                .clipShape(RoundedRectangle(cornerRadius: backgroundRoundness, style: .continuous))
-                .shadow(
-                    color: Color.black.opacity(0.45 * backgroundShadow),
-                    radius: 34 * backgroundShadow,
-                    y: 14 * backgroundShadow
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: backgroundRoundness, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                }
+        GeometryReader { proxy in
+            let layout = ScreenshotCompositionLayout(
+                configuration: exportConfiguration,
+                imageSize: Self.logicalSize(for: image),
+                styleScale: 1
+            )
+            let previewScale = layout.displayScale(toFit: proxy.size)
+            let backgroundSize = CGSize(
+                width: layout.backgroundRect.width * previewScale,
+                height: layout.backgroundRect.height * previewScale
+            )
+            let imageSize = CGSize(
+                width: layout.imageRect.width * previewScale,
+                height: layout.imageRect.height * previewScale
+            )
 
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .clipShape(RoundedRectangle(cornerRadius: imageRoundness, style: .continuous))
-                .shadow(
-                    color: Color.black.opacity(0.55 * imageShadow),
-                    radius: 38 * imageShadow,
-                    y: 18 * imageShadow
-                )
-                .padding(CGFloat(padding))
+            ZStack {
+                BackgroundFillView(style: background)
+                    .frame(width: backgroundSize.width, height: backgroundSize.height)
+                    .clipShape(RoundedRectangle(
+                        cornerRadius: layout.backgroundRoundness * previewScale,
+                        style: .continuous
+                    ))
+                    .shadow(
+                        color: Color.black.opacity(0.45 * backgroundShadow),
+                        radius: 34 * backgroundShadow * previewScale,
+                        y: 14 * backgroundShadow * previewScale
+                    )
+                    .overlay {
+                        RoundedRectangle(
+                            cornerRadius: layout.backgroundRoundness * previewScale,
+                            style: .continuous
+                        )
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    }
+
+                Image(nsImage: image)
+                    .resizable()
+                    .frame(width: imageSize.width, height: imageSize.height)
+                    .clipShape(RoundedRectangle(
+                        cornerRadius: layout.imageRoundness * previewScale,
+                        style: .continuous
+                    ))
+                    .shadow(
+                        color: Color.black.opacity(0.55 * imageShadow),
+                        radius: 38 * imageShadow * previewScale,
+                        y: 18 * imageShadow * previewScale
+                    )
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
+    }
+
+    private var exportConfiguration: ScreenshotExportConfiguration {
+        ScreenshotExportConfiguration(
+            background: background,
+            padding: padding,
+            backgroundRoundness: backgroundRoundness,
+            backgroundShadow: backgroundShadow,
+            imageRoundness: imageRoundness,
+            imageShadow: imageShadow
+        )
+    }
+
+    private static func logicalSize(for image: NSImage) -> CGSize {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else {
+            if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                return CGSize(width: cgImage.width, height: cgImage.height)
+            }
+            return CGSize(width: 1, height: 1)
+        }
+        return size
     }
 }
 

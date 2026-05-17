@@ -268,6 +268,10 @@ enum EditorMediaKind: String, Codable, Hashable {
         let titleWithoutExtension = candidateURL.deletingPathExtension().lastPathComponent
         return titleWithoutExtension.isEmpty ? candidate : titleWithoutExtension
     }
+
+    func supports(_ url: URL) -> Bool {
+        filenameExtensions.contains(url.pathExtension.lowercased())
+    }
 }
 
 struct EditorSession: Codable, Hashable, Identifiable {

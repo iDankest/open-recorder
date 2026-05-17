@@ -118,6 +118,101 @@ final class ScreenshotExportRendererTests: XCTestCase {
         ])
     }
 
+    func testRendererDrawsSelectedBackgroundInsidePadding() throws {
+        let renderer = ScreenshotExportRenderer(configuration: ScreenshotExportConfiguration(
+            background: .solid(SerializableColor(red: 1, green: 0, blue: 0)),
+            padding: 1,
+            backgroundRoundness: 0,
+            backgroundShadow: 0,
+            imageRoundness: 0,
+            imageShadow: 0
+        ))
+
+        let data = try XCTUnwrap(renderer.renderPNG(from: makeProbeImage(rows: ["WW", "WW"])))
+
+        XCTAssertEqual(try pixelSymbols(from: data), [
+            "RRRR",
+            "RWWR",
+            "RWWR",
+            "RRRR"
+        ])
+    }
+
+    func testRendererKeepsTransparentBackgroundTransparent() throws {
+        let renderer = ScreenshotExportRenderer(configuration: ScreenshotExportConfiguration(
+            background: .transparent,
+            padding: 1,
+            backgroundRoundness: 0,
+            backgroundShadow: 0,
+            imageRoundness: 0,
+            imageShadow: 0
+        ))
+
+        let data = try XCTUnwrap(renderer.renderPNG(from: makeProbeImage(rows: ["WW", "WW"])))
+
+        XCTAssertEqual(try pixelSymbols(from: data), [
+            "....",
+            ".WW.",
+            ".WW.",
+            "...."
+        ])
+    }
+
+    func testRendererScalesStylingForHighDPIImages() throws {
+        let renderer = ScreenshotExportRenderer(configuration: ScreenshotExportConfiguration(
+            background: .solid(SerializableColor(red: 1, green: 0, blue: 0)),
+            padding: 2,
+            backgroundRoundness: 0,
+            backgroundShadow: 0,
+            imageRoundness: 0,
+            imageShadow: 0
+        ))
+
+        let data = try XCTUnwrap(renderer.renderPNG(from: makeProbeImage(
+            rows: ["WW", "WW"],
+            displaySize: NSSize(width: 1, height: 1)
+        )))
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: data))
+
+        XCTAssertEqual(bitmap.pixelsWide, 10)
+        XCTAssertEqual(bitmap.pixelsHigh, 10)
+        XCTAssertEqual(
+            try pixelSymbols(from: data, x: 4, y: 4, width: 2, height: 2),
+            ["WW", "WW"]
+        )
+        XCTAssertEqual(
+            try pixelSymbols(from: data, x: 0, y: 0, width: 3, height: 3),
+            ["RRR", "RRR", "RRR"]
+        )
+    }
+
+    func testCompositionLayoutKeepsPreviewPaddingProportionalToExport() {
+        let configuration = ScreenshotExportConfiguration(
+            background: .solid(SerializableColor(red: 1, green: 0, blue: 0)),
+            padding: 80,
+            backgroundRoundness: 0,
+            backgroundShadow: 0,
+            imageRoundness: 0,
+            imageShadow: 0
+        )
+
+        let layout = ScreenshotCompositionLayout(
+            configuration: configuration,
+            imageSize: CGSize(width: 420, height: 260),
+            styleScale: 1
+        )
+        let previewScale = layout.displayScale(toFit: CGSize(width: 812, height: 604))
+        let previewBackgroundWidth = layout.backgroundRect.width * previewScale
+        let previewImageWidth = layout.imageRect.width * previewScale
+        let previewHorizontalPadding = (previewBackgroundWidth - previewImageWidth) / 2
+
+        XCTAssertEqual(layout.backgroundRect.width, 580)
+        XCTAssertEqual(layout.backgroundRect.height, 420)
+        XCTAssertEqual(layout.imageRect.minX - layout.backgroundRect.minX, 80)
+        XCTAssertEqual(layout.imageRect.minY - layout.backgroundRect.minY, 80)
+        XCTAssertEqual(previewHorizontalPadding, 80 * previewScale, accuracy: 0.001)
+    }
+
     func testRendererKeepsScreenshotOrientationInsideShadowMargin() throws {
         let imageShadow = 0.25
         let padding = 3
@@ -201,7 +296,7 @@ final class ScreenshotExportRendererTests: XCTestCase {
         }
     }
 
-    private func makeProbeImage(rows: [String]) throws -> NSImage {
+    private func makeProbeImage(rows: [String], displaySize: NSSize? = nil) throws -> NSImage {
         let width = try XCTUnwrap(rows.first?.count)
         let height = rows.count
         XCTAssertTrue(rows.allSatisfy { $0.count == width })
@@ -226,7 +321,7 @@ final class ScreenshotExportRendererTests: XCTestCase {
             shouldInterpolate: false,
             intent: .defaultIntent
         ))
-        return NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
+        return NSImage(cgImage: cgImage, size: displaySize ?? NSSize(width: width, height: height))
     }
 
     private func rgbaComponents(for symbol: Character) throws -> [UInt8] {

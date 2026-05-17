@@ -11,6 +11,63 @@ struct ScreenshotExportConfiguration {
     var imageShadow: Double
 }
 
+struct ScreenshotCompositionLayout {
+    var styleScale: CGFloat
+    var padding: CGFloat
+    var backgroundRoundness: CGFloat
+    var backgroundShadowStrength: CGFloat
+    var imageRoundness: CGFloat
+    var imageShadowStrength: CGFloat
+    var shadowMargin: CGFloat
+    var backgroundRect: CGRect
+    var imageRect: CGRect
+    var canvasSize: CGSize
+
+    init(configuration: ScreenshotExportConfiguration, imageSize: CGSize, styleScale: CGFloat) {
+        let resolvedScale = styleScale.isFinite ? max(styleScale, 1) : 1
+        self.styleScale = resolvedScale
+        padding = max(CGFloat(configuration.padding), 0) * resolvedScale
+        backgroundRoundness = max(CGFloat(configuration.backgroundRoundness), 0) * resolvedScale
+        backgroundShadowStrength = max(CGFloat(configuration.backgroundShadow), 0)
+        imageRoundness = max(CGFloat(configuration.imageRoundness), 0) * resolvedScale
+        imageShadowStrength = max(CGFloat(configuration.imageShadow), 0)
+        shadowMargin = max(backgroundShadowStrength, imageShadowStrength) > 0
+            ? ceil(max(backgroundShadowStrength, imageShadowStrength) * 56 * resolvedScale)
+            : 0
+
+        let resolvedImageSize = CGSize(
+            width: max(imageSize.width, 1),
+            height: max(imageSize.height, 1)
+        )
+        backgroundRect = CGRect(
+            x: shadowMargin,
+            y: shadowMargin,
+            width: resolvedImageSize.width + padding * 2,
+            height: resolvedImageSize.height + padding * 2
+        )
+        imageRect = CGRect(
+            x: backgroundRect.minX + padding,
+            y: backgroundRect.minY + padding,
+            width: resolvedImageSize.width,
+            height: resolvedImageSize.height
+        )
+        canvasSize = CGSize(
+            width: backgroundRect.width + shadowMargin * 2,
+            height: backgroundRect.height + shadowMargin * 2
+        )
+    }
+
+    func displayScale(toFit availableSize: CGSize) -> CGFloat {
+        guard canvasSize.width > 0, canvasSize.height > 0,
+              availableSize.width > 0, availableSize.height > 0 else {
+            return 1
+        }
+
+        let scale = min(availableSize.width / canvasSize.width, availableSize.height / canvasSize.height)
+        return scale.isFinite ? max(scale, 0) : 1
+    }
+}
+
 struct ScreenshotExportRenderer {
     var configuration: ScreenshotExportConfiguration
 
@@ -25,24 +82,14 @@ struct ScreenshotExportRenderer {
         }
 
         let imageSize = CGSize(width: cgImage.width, height: cgImage.height)
-        let exportPadding = max(CGFloat(configuration.padding), 0)
-        let shadowMargin = max(CGFloat(configuration.backgroundShadow), CGFloat(configuration.imageShadow)) > 0
-            ? ceil(max(CGFloat(configuration.backgroundShadow), CGFloat(configuration.imageShadow)) * 56)
-            : 0
-        let backgroundRect = CGRect(
-            x: shadowMargin,
-            y: shadowMargin,
-            width: imageSize.width + exportPadding * 2,
-            height: imageSize.height + exportPadding * 2
+        let styleScale = Self.styleScale(for: image, cgImage: cgImage)
+        let layout = ScreenshotCompositionLayout(
+            configuration: configuration,
+            imageSize: imageSize,
+            styleScale: styleScale
         )
-        let imageRect = CGRect(
-            x: backgroundRect.minX + exportPadding,
-            y: backgroundRect.minY + exportPadding,
-            width: imageSize.width,
-            height: imageSize.height
-        )
-        let width = max(Int(ceil(backgroundRect.width + shadowMargin * 2)), 1)
-        let height = max(Int(ceil(backgroundRect.height + shadowMargin * 2)), 1)
+        let width = max(Int(ceil(layout.canvasSize.width)), 1)
+        let height = max(Int(ceil(layout.canvasSize.height)), 1)
 
         guard let context = CGContext(
             data: nil,
@@ -60,18 +107,18 @@ struct ScreenshotExportRenderer {
         context.translateBy(x: 0, y: CGFloat(height))
         context.scaleBy(x: 1, y: -1)
 
-        drawExportBackground(in: context, rect: backgroundRect)
-        drawExportImageShadow(in: context, rect: imageRect)
+        drawExportBackground(in: context, rect: layout.backgroundRect, layout: layout)
+        drawExportImageShadow(in: context, rect: layout.imageRect, layout: layout)
 
         context.saveGState()
         context.addPath(CGPath(
-            roundedRect: imageRect,
-            cornerWidth: CGFloat(configuration.imageRoundness),
-            cornerHeight: CGFloat(configuration.imageRoundness),
+            roundedRect: layout.imageRect,
+            cornerWidth: layout.imageRoundness,
+            cornerHeight: layout.imageRoundness,
             transform: nil
         ))
         context.clip()
-        drawImage(cgImage, in: imageRect, context: context)
+        drawImage(cgImage, in: layout.imageRect, context: context)
         context.restoreGState()
 
         guard let exportedImage = context.makeImage() else {
@@ -82,21 +129,33 @@ struct ScreenshotExportRenderer {
         return bitmap.representation(using: .png, properties: [:])
     }
 
-    private func drawExportBackground(in context: CGContext, rect: CGRect) {
+    private static func styleScale(for image: NSImage, cgImage: CGImage) -> CGFloat {
+        let logicalSize = image.size
+        guard logicalSize.width > 0, logicalSize.height > 0 else {
+            return 1
+        }
+
+        let xScale = CGFloat(cgImage.width) / logicalSize.width
+        let yScale = CGFloat(cgImage.height) / logicalSize.height
+        let resolved = max(xScale, yScale)
+        return resolved.isFinite ? max(resolved, 1) : 1
+    }
+
+    private func drawExportBackground(in context: CGContext, rect: CGRect, layout: ScreenshotCompositionLayout) {
         let shouldDrawBackground = !configuration.background.isTransparent
 
-        if configuration.backgroundShadow > 0, shouldDrawBackground {
+        if layout.backgroundShadowStrength > 0, shouldDrawBackground {
             context.saveGState()
             context.setShadow(
-                offset: CGSize(width: 0, height: 14 * CGFloat(configuration.backgroundShadow)),
-                blur: 34 * CGFloat(configuration.backgroundShadow),
+                offset: CGSize(width: 0, height: 14 * layout.backgroundShadowStrength * layout.styleScale),
+                blur: 34 * layout.backgroundShadowStrength * layout.styleScale,
                 color: NSColor.black.withAlphaComponent(0.45 * configuration.backgroundShadow).cgColor
             )
             context.setFillColor(NSColor.black.withAlphaComponent(0.01).cgColor)
             context.addPath(CGPath(
                 roundedRect: rect,
-                cornerWidth: CGFloat(configuration.backgroundRoundness),
-                cornerHeight: CGFloat(configuration.backgroundRoundness),
+                cornerWidth: layout.backgroundRoundness,
+                cornerHeight: layout.backgroundRoundness,
                 transform: nil
             ))
             context.fillPath()
@@ -106,8 +165,8 @@ struct ScreenshotExportRenderer {
         context.saveGState()
         context.addPath(CGPath(
             roundedRect: rect,
-            cornerWidth: CGFloat(configuration.backgroundRoundness),
-            cornerHeight: CGFloat(configuration.backgroundRoundness),
+            cornerWidth: layout.backgroundRoundness,
+            cornerHeight: layout.backgroundRoundness,
             transform: nil
         ))
         context.clip()
@@ -132,8 +191,8 @@ struct ScreenshotExportRenderer {
             context.setLineWidth(1)
             context.addPath(CGPath(
                 roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
-                cornerWidth: CGFloat(configuration.backgroundRoundness),
-                cornerHeight: CGFloat(configuration.backgroundRoundness),
+                cornerWidth: layout.backgroundRoundness,
+                cornerHeight: layout.backgroundRoundness,
                 transform: nil
             ))
             context.strokePath()
@@ -195,20 +254,20 @@ struct ScreenshotExportRenderer {
         drawImage(cgImage, in: drawRect, context: context)
     }
 
-    private func drawExportImageShadow(in context: CGContext, rect: CGRect) {
-        guard configuration.imageShadow > 0 else { return }
+    private func drawExportImageShadow(in context: CGContext, rect: CGRect, layout: ScreenshotCompositionLayout) {
+        guard layout.imageShadowStrength > 0 else { return }
 
         context.saveGState()
         context.setShadow(
-            offset: CGSize(width: 0, height: 18 * CGFloat(configuration.imageShadow)),
-            blur: 38 * CGFloat(configuration.imageShadow),
+            offset: CGSize(width: 0, height: 18 * layout.imageShadowStrength * layout.styleScale),
+            blur: 38 * layout.imageShadowStrength * layout.styleScale,
             color: NSColor.black.withAlphaComponent(0.55 * configuration.imageShadow).cgColor
         )
         context.setFillColor(NSColor.black.withAlphaComponent(0.01).cgColor)
         context.addPath(CGPath(
             roundedRect: rect,
-            cornerWidth: CGFloat(configuration.imageRoundness),
-            cornerHeight: CGFloat(configuration.imageRoundness),
+            cornerWidth: layout.imageRoundness,
+            cornerHeight: layout.imageRoundness,
             transform: nil
         ))
         context.fillPath()

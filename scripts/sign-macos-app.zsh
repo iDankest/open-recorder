@@ -25,6 +25,16 @@ if [[ ! -f "$service_binary" ]]; then
 	exit 1
 fi
 
+temporary_entitlements_plist=""
+
+cleanup() {
+	if [[ -n "$temporary_entitlements_plist" ]]; then
+		rm -f "$temporary_entitlements_plist"
+	fi
+}
+
+trap cleanup EXIT
+
 find_codesign_identity() {
 	local pattern="$1"
 	local line hash name
@@ -131,6 +141,27 @@ sign_sparkle_framework() {
 	done
 }
 
+ad_hoc_app_entitlements() {
+	temporary_entitlements_plist="$(mktemp "${TMPDIR:-/tmp}/open-recorder-entitlements.XXXXXX")"
+
+	if [[ -f "$entitlements_plist" ]]; then
+		cp "$entitlements_plist" "$temporary_entitlements_plist"
+	else
+		print -- '<?xml version="1.0" encoding="UTF-8"?>' >"$temporary_entitlements_plist"
+		print -- '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">' >>"$temporary_entitlements_plist"
+		print -- '<plist version="1.0"><dict/></plist>' >>"$temporary_entitlements_plist"
+	fi
+
+	/usr/libexec/PlistBuddy \
+		-c "Add :com.apple.security.cs.disable-library-validation bool true" \
+		"$temporary_entitlements_plist" 2>/dev/null \
+		|| /usr/libexec/PlistBuddy \
+			-c "Set :com.apple.security.cs.disable-library-validation true" \
+			"$temporary_entitlements_plist"
+
+	print -- "$temporary_entitlements_plist"
+}
+
 if command -v codesign >/dev/null 2>&1; then
 	identity_line="$(resolve_codesign_identity)"
 	sign_identity="${identity_line%%$'\t'*}"
@@ -143,8 +174,12 @@ if command -v codesign >/dev/null 2>&1; then
 		codesign_args+=(--timestamp=none)
 	fi
 	app_codesign_args=("${codesign_args[@]}")
-	if [[ -f "$entitlements_plist" ]]; then
-		app_codesign_args+=(--entitlements "$entitlements_plist")
+	app_entitlements_plist="$entitlements_plist"
+	if [[ "$sign_identity" == "-" ]]; then
+		app_entitlements_plist="$(ad_hoc_app_entitlements)"
+	fi
+	if [[ -f "$app_entitlements_plist" ]]; then
+		app_codesign_args+=(--entitlements "$app_entitlements_plist")
 	fi
 
 	sign_sparkle_framework

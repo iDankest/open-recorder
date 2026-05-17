@@ -304,6 +304,22 @@ final class AppModelStateTests: XCTestCase {
         XCTAssertTrue(model.canStartNewCapture)
     }
 
+    func testOpenEditorFileRoutesScreenshotImagesToScreenshotEditor() throws {
+        let model = AppModel()
+        let url = URL(fileURLWithPath: "/tmp/example-screenshot.png")
+
+        model.openEditorFile(at: url)
+
+        let editorSession = try XCTUnwrap(model.windowCommand?.editorSession)
+        XCTAssertEqual(model.currentScreenshotURL, url)
+        XCTAssertNil(model.currentVideoURL)
+        XCTAssertEqual(model.selectedSection, .editor)
+        XCTAssertEqual(model.windowCommand?.action, .showStudio)
+        XCTAssertEqual(editorSession.kind, .screenshot)
+        XCTAssertEqual(editorSession.url, url)
+        XCTAssertEqual(model.statusMessage, "Opened example-screenshot.png")
+    }
+
     func testAreaScreenshotCompletionOpensEditorEvenIfScreenshotIndexingFails() throws {
         var capturedSources: [CaptureSource] = []
         let screenshotsDir = FileManager.default.temporaryDirectory
