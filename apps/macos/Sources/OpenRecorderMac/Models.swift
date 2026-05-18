@@ -113,43 +113,71 @@ struct ProjectSummary: Codable, Identifiable, Hashable, Sendable {
     var title: String
     var path: String
     var recordingPath: String?
+    var screenshotPath: String? = nil
     var sourceName: String?
     var createdAt: String
     var updatedAt: String
     var lastOpenedAt: String
     var missing: Bool
+
+    var mediaKind: EditorMediaKind {
+        screenshotPath == nil ? .video : .screenshot
+    }
+
+    var mediaPath: String? {
+        screenshotPath ?? recordingPath
+    }
 }
 
 struct ProjectDocument: Codable {
     var schemaVersion: Int
     var title: String
     var recordingPath: String?
+    var screenshotPath: String?
     var sourceName: String?
     var createdAt: String
     var updatedAt: String
     var editorState: ProjectEditorState?
+
+    var mediaKind: EditorMediaKind? {
+        if screenshotPath != nil {
+            return .screenshot
+        }
+        if recordingPath != nil {
+            return .video
+        }
+        return nil
+    }
 }
 
 struct ProjectEditorState: Codable, Equatable {
     var timelineEdits: TimelineEditSnapshot
     var video: ProjectVideoEditorState?
+    var screenshot: ScreenshotEditorState?
 
-    static let empty = ProjectEditorState(timelineEdits: .empty, video: nil)
+    static let empty = ProjectEditorState(timelineEdits: .empty, video: nil, screenshot: nil)
 
-    init(timelineEdits: TimelineEditSnapshot = .empty, video: ProjectVideoEditorState? = nil) {
+    init(
+        timelineEdits: TimelineEditSnapshot = .empty,
+        video: ProjectVideoEditorState? = nil,
+        screenshot: ScreenshotEditorState? = nil
+    ) {
         self.timelineEdits = timelineEdits
         self.video = video
+        self.screenshot = screenshot
     }
 
     private enum CodingKeys: String, CodingKey {
         case timelineEdits
         case video
+        case screenshot
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         timelineEdits = try container.decodeIfPresent(TimelineEditSnapshot.self, forKey: .timelineEdits) ?? .empty
         video = try container.decodeIfPresent(ProjectVideoEditorState.self, forKey: .video)
+        screenshot = try container.decodeIfPresent(ScreenshotEditorState.self, forKey: .screenshot)
     }
 }
 
@@ -283,6 +311,7 @@ struct EditorSession: Codable, Hashable, Identifiable {
     var recordingSession: RecordingSession?
     var timelineEditSnapshot: TimelineEditSnapshot?
     var videoEditorState: ProjectVideoEditorState?
+    var screenshotEditorState: ScreenshotEditorState?
 
     init(
         kind: EditorMediaKind,
@@ -292,7 +321,8 @@ struct EditorSession: Codable, Hashable, Identifiable {
         projectPath: String? = nil,
         recordingSession: RecordingSession? = nil,
         timelineEditSnapshot: TimelineEditSnapshot? = nil,
-        videoEditorState: ProjectVideoEditorState? = nil
+        videoEditorState: ProjectVideoEditorState? = nil,
+        screenshotEditorState: ScreenshotEditorState? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -302,6 +332,7 @@ struct EditorSession: Codable, Hashable, Identifiable {
         self.recordingSession = recordingSession
         self.timelineEditSnapshot = timelineEditSnapshot
         self.videoEditorState = videoEditorState
+        self.screenshotEditorState = screenshotEditorState
     }
 
     var url: URL {

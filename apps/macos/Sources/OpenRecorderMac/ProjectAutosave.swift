@@ -3,7 +3,8 @@ import Foundation
 struct ProjectAutosaveSnapshot: Equatable {
     var projectPath: String
     var title: String
-    var recordingPath: String
+    var recordingPath: String?
+    var screenshotPath: String?
     var sourceName: String?
     var editorState: ProjectEditorState
 }
@@ -17,7 +18,8 @@ enum ProjectAutosaveStatus: Equatable {
 struct ProjectUpdateRequest: Encodable {
     var path: String
     var title: String
-    var recordingPath: String
+    var recordingPath: String?
+    var screenshotPath: String?
     var sourceName: String?
     var editorState: ProjectEditorState
 
@@ -25,6 +27,7 @@ struct ProjectUpdateRequest: Encodable {
         path = snapshot.projectPath
         title = snapshot.title
         recordingPath = snapshot.recordingPath
+        screenshotPath = snapshot.screenshotPath
         sourceName = snapshot.sourceName
         editorState = snapshot.editorState
     }

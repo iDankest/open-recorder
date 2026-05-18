@@ -813,11 +813,20 @@ final class AppModel: ObservableObject {
             let outputURL = URL(fileURLWithPath: ensuredPaths.screenshotsDir)
                 .appendingPathComponent(timestampedFileName(prefix: "screenshot", extension: "png"))
             try screenshotCapture(selectedSource, outputURL)
+            let summary = registerScreenshotProject(outputURL, sourceName: selectedSource.name)
             currentScreenshotURL = outputURL
             currentVideoURL = nil
-            showEditor(for: EditorSession(kind: .screenshot, url: outputURL))
+            showEditor(for: EditorSession(
+                kind: .screenshot,
+                url: outputURL,
+                title: summary?.title,
+                projectPath: summary?.path,
+                screenshotEditorState: .default
+            ))
             statusMessage = "Captured \(outputURL.lastPathComponent)"
-            rememberScreenshotInBackground(outputURL)
+            if summary == nil {
+                rememberScreenshotInBackground(outputURL)
+            }
         } catch {
             setHUDPhase(.ready(.screenshot, selectedSource))
             statusMessage = error.localizedDescription
@@ -828,6 +837,26 @@ final class AppModel: ObservableObject {
         let rememberScreenshot = rememberScreenshot
         DispatchQueue.global(qos: .utility).async {
             try? rememberScreenshot(outputURL)
+        }
+    }
+
+    private func registerScreenshotProject(_ outputURL: URL, sourceName: String?) -> ProjectSummary? {
+        let title = outputURL.deletingPathExtension().lastPathComponent
+        do {
+            let summary: ProjectSummary = try service.call(
+                "registerScreenshot",
+                params: [
+                    "path": outputURL.path,
+                    "sourceName": sourceName ?? "Screenshot",
+                    "title": title,
+                    "editorState": jsonObject(for: ProjectEditorState(screenshot: ScreenshotEditorState.default)) ?? [:]
+                ],
+                as: ProjectSummary.self
+            )
+            upsertProjectSummary(summary)
+            return summary
+        } catch {
+            return nil
         }
     }
 
@@ -882,7 +911,20 @@ final class AppModel: ObservableObject {
                 params: ["path": projectURL.path],
                 as: ProjectDocument.self
             )
-            if let recordingPath = document.recordingPath {
+            if let screenshotPath = document.screenshotPath {
+                let screenshotURL = URL(fileURLWithPath: screenshotPath)
+                currentScreenshotURL = screenshotURL
+                currentVideoURL = nil
+                showEditor(for: EditorSession(
+                    kind: .screenshot,
+                    url: screenshotURL,
+                    title: document.title,
+                    projectPath: projectURL.path,
+                    screenshotEditorState: document.editorState?.screenshot
+                ))
+                statusMessage = "Opened \(document.title)"
+                refreshBackendState()
+            } else if let recordingPath = document.recordingPath {
                 let recordingURL = URL(fileURLWithPath: recordingPath)
                 currentVideoURL = recordingURL
                 currentScreenshotURL = nil

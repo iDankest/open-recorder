@@ -126,6 +126,24 @@ final class ProjectEditorStateCodableTests: XCTestCase {
         XCTAssertEqual(decoded.video?.cursorOverlay.style, .dotPointer)
         XCTAssertEqual(decoded.video?.cursorOverlay.variant, .soft)
     }
+
+    func testProjectEditorStateRoundTripsScreenshotState() throws {
+        let screenshot = ScreenshotEditorState(
+            background: .solid(SerializableColor(hex: "#112233")),
+            padding: 72,
+            backgroundRoundness: 32,
+            backgroundShadow: 0.4,
+            imageRoundness: 18,
+            imageShadow: 0.2
+        )
+        let state = ProjectEditorState(screenshot: screenshot)
+
+        let data = try JSONEncoder().encode(state)
+        let decoded = try JSONDecoder().decode(ProjectEditorState.self, from: data)
+
+        XCTAssertEqual(decoded, state)
+        XCTAssertEqual(decoded.screenshot?.padding, 72)
+    }
 }
 
 private func makeAutosaveSnapshot(title: String, splitTime: Double) -> ProjectAutosaveSnapshot {
@@ -135,6 +153,7 @@ private func makeAutosaveSnapshot(title: String, splitTime: Double) -> ProjectAu
         projectPath: "/tmp/\(title).openrecorder",
         title: title,
         recordingPath: "/tmp/\(title).mp4",
+        screenshotPath: nil,
         sourceName: "Display 1",
         editorState: ProjectEditorState(timelineEdits: timeline, video: .default)
     )
@@ -146,6 +165,7 @@ private func makeProjectSummary(for snapshot: ProjectAutosaveSnapshot) -> Projec
         title: snapshot.title,
         path: snapshot.projectPath,
         recordingPath: snapshot.recordingPath,
+        screenshotPath: snapshot.screenshotPath,
         sourceName: snapshot.sourceName,
         createdAt: "100",
         updatedAt: "200",

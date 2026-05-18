@@ -49,6 +49,7 @@ struct ProjectSummary {
     title: String,
     path: String,
     recording_path: Option<String>,
+    screenshot_path: Option<String>,
     source_name: Option<String>,
     created_at: String,
     updated_at: String,
@@ -62,11 +63,21 @@ struct ProjectDocument {
     schema_version: u32,
     title: String,
     recording_path: Option<String>,
+    screenshot_path: Option<String>,
     source_name: Option<String>,
     created_at: String,
     updated_at: String,
     #[serde(default)]
     editor_state: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecentScreenshotSummary {
+    id: String,
+    path: String,
+    created_at: String,
+    missing: bool,
 }
 
 fn main() {
@@ -196,22 +207,59 @@ fn handle_method(method: &str, params: Value) -> Result<Value, String> {
                 &paths,
                 &title,
                 Some(recording_path),
+                None,
                 source_name,
                 editor_state,
             )?;
+            Ok(serde_json::to_value(summary).map_err(|err| err.to_string())?)
+        }
+        "registerScreenshot" => {
+            paths.ensure()?;
+            let screenshot_path = string_param(&params, "path")
+                .ok_or_else(|| "registerScreenshot requires path".to_string())?;
+            let source_name = string_param(&params, "sourceName");
+            let title = string_param(&params, "title").unwrap_or_else(|| {
+                Path::new(&screenshot_path)
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .unwrap_or("Screenshot")
+                    .to_string()
+            });
+            let editor_state = params.get("editorState").cloned().unwrap_or_else(|| {
+                json!({
+                    "timelineEdits": { "zoomRegions": [], "trimRegions": [], "annotationRegions": [], "clipSplitTimes": [], "clipSpeeds": {} },
+                    "screenshot": {}
+                })
+            });
+            let summary = save_project_document(
+                &paths,
+                &title,
+                None,
+                Some(screenshot_path.clone()),
+                source_name,
+                editor_state,
+            )?;
+            remember_screenshot(&paths, &screenshot_path)?;
             Ok(serde_json::to_value(summary).map_err(|err| err.to_string())?)
         }
         "saveProject" => {
             paths.ensure()?;
             let title = string_param(&params, "title").unwrap_or_else(|| "Untitled Project".into());
             let recording_path = string_param(&params, "recordingPath");
+            let screenshot_path = string_param(&params, "screenshotPath");
             let source_name = string_param(&params, "sourceName");
             let editor_state = params
                 .get("editorState")
                 .cloned()
                 .unwrap_or_else(|| json!({ "timeline": [], "annotations": [] }));
-            let summary =
-                save_project_document(&paths, &title, recording_path, source_name, editor_state)?;
+            let summary = save_project_document(
+                &paths,
+                &title,
+                recording_path,
+                screenshot_path,
+                source_name,
+                editor_state,
+            )?;
             Ok(serde_json::to_value(summary).map_err(|err| err.to_string())?)
         }
         "updateProject" => {
@@ -224,6 +272,7 @@ fn handle_method(method: &str, params: Value) -> Result<Value, String> {
                 Path::new(&path),
                 string_param(&params, "title"),
                 string_param(&params, "recordingPath"),
+                string_param(&params, "screenshotPath"),
                 string_param(&params, "sourceName"),
                 editor_state,
             )?;
@@ -237,6 +286,7 @@ fn handle_method(method: &str, params: Value) -> Result<Value, String> {
                     item.missing = item
                         .recording_path
                         .as_ref()
+                        .or(item.screenshot_path.as_ref())
                         .map(|path| !Path::new(path).exists())
                         .unwrap_or(false);
                     item
@@ -262,11 +312,19 @@ fn handle_method(method: &str, params: Value) -> Result<Value, String> {
             paths.ensure()?;
             let path = string_param(&params, "path")
                 .ok_or_else(|| "rememberScreenshot requires path".to_string())?;
-            let index_path = paths.support_dir.join("screenshots.json");
-            let mut screenshots = read_json_array(&index_path)?;
-            screenshots.push(json!({ "path": path, "createdAt": timestamp_string() }));
-            write_json_pretty(&index_path, &Value::Array(screenshots))?;
+            remember_screenshot(&paths, &path)?;
             Ok(json!({ "path": path }))
+        }
+        "listScreenshots" => {
+            paths.ensure()?;
+            let screenshots = read_screenshot_index(&paths)?
+                .into_iter()
+                .map(|mut item| {
+                    item.missing = !Path::new(&item.path).exists();
+                    item
+                })
+                .collect::<Vec<_>>();
+            Ok(serde_json::to_value(screenshots).map_err(|err| err.to_string())?)
         }
         "exportRecording" => {
             let source = string_param(&params, "sourcePath")
@@ -328,6 +386,7 @@ fn save_project_document(
     paths: &InternalPaths,
     title: &str,
     recording_path: Option<String>,
+    screenshot_path: Option<String>,
     source_name: Option<String>,
     editor_state: Value,
 ) -> Result<ProjectSummary, String> {
@@ -343,6 +402,7 @@ fn save_project_document(
         schema_version: 2,
         title: title.to_string(),
         recording_path: recording_path.clone(),
+        screenshot_path: screenshot_path.clone(),
         source_name: source_name.clone(),
         created_at: now.clone(),
         updated_at: now.clone(),
@@ -359,6 +419,7 @@ fn save_project_document(
         title: title.to_string(),
         path: project_path.to_string_lossy().to_string(),
         recording_path,
+        screenshot_path,
         source_name,
         created_at: now.clone(),
         updated_at: now.clone(),
@@ -379,6 +440,7 @@ fn update_project_document(
     project_path: &Path,
     title: Option<String>,
     recording_path: Option<String>,
+    screenshot_path: Option<String>,
     source_name: Option<String>,
     editor_state: Option<Value>,
 ) -> Result<ProjectSummary, String> {
@@ -388,15 +450,17 @@ fn update_project_document(
     let now = timestamp_string();
     let project_path_string = project_path.to_string_lossy().to_string();
 
-    let title = title.unwrap_or(existing_document.title);
-    let recording_path = recording_path.or(existing_document.recording_path);
-    let source_name = source_name.or(existing_document.source_name);
-    let editor_state = editor_state.unwrap_or(existing_document.editor_state);
+    let title = title.unwrap_or_else(|| existing_document.title.clone());
+    let recording_path = recording_path.or_else(|| existing_document.recording_path.clone());
+    let screenshot_path = screenshot_path.or_else(|| existing_document.screenshot_path.clone());
+    let source_name = source_name.or_else(|| existing_document.source_name.clone());
+    let editor_state = editor_state.unwrap_or_else(|| existing_document.editor_state.clone());
 
     let document = ProjectDocument {
         schema_version: existing_document.schema_version.max(2),
         title: title.clone(),
         recording_path: recording_path.clone(),
+        screenshot_path: screenshot_path.clone(),
         source_name: source_name.clone(),
         created_at: existing_document.created_at.clone(),
         updated_at: now.clone(),
@@ -423,6 +487,7 @@ fn update_project_document(
         title,
         path: project_path_string,
         recording_path: recording_path.clone(),
+        screenshot_path: screenshot_path.clone(),
         source_name,
         created_at: existing_summary
             .as_ref()
@@ -434,6 +499,7 @@ fn update_project_document(
             .unwrap_or(now),
         missing: recording_path
             .as_ref()
+            .or(screenshot_path.as_ref())
             .map(|path| !Path::new(path).exists())
             .unwrap_or(false),
     };
@@ -460,6 +526,67 @@ fn write_index(paths: &InternalPaths, projects: &[ProjectSummary]) -> Result<(),
         &paths.project_index,
         &serde_json::to_value(projects).map_err(|err| err.to_string())?,
     )
+}
+
+fn screenshot_index_path(paths: &InternalPaths) -> PathBuf {
+    paths.support_dir.join("screenshots.json")
+}
+
+fn remember_screenshot(
+    paths: &InternalPaths,
+    screenshot_path: &str,
+) -> Result<RecentScreenshotSummary, String> {
+    let now = timestamp_string();
+    let summary = RecentScreenshotSummary {
+        id: format!("screenshot-{}", unix_timestamp_millis()),
+        path: screenshot_path.to_string(),
+        created_at: now,
+        missing: !Path::new(screenshot_path).exists(),
+    };
+    let mut screenshots = read_screenshot_index(paths)?;
+    screenshots.retain(|screenshot| screenshot.path != screenshot_path);
+    screenshots.insert(0, summary.clone());
+    screenshots.truncate(100);
+    write_screenshot_index(paths, &screenshots)?;
+    Ok(summary)
+}
+
+fn read_screenshot_index(paths: &InternalPaths) -> Result<Vec<RecentScreenshotSummary>, String> {
+    let index_path = screenshot_index_path(paths);
+    let values = read_json_array(&index_path)?;
+    let mut screenshots = values
+        .into_iter()
+        .filter_map(|value| {
+            let path = value.get("path")?.as_str()?.to_string();
+            let created_at = value
+                .get("createdAt")
+                .and_then(Value::as_str)
+                .unwrap_or("0")
+                .to_string();
+            Some(RecentScreenshotSummary {
+                id: format!(
+                    "screenshot-{created_at}-{path}",
+                    path = sanitize_file_name(&path)
+                ),
+                path,
+                created_at,
+                missing: false,
+            })
+        })
+        .collect::<Vec<_>>();
+    screenshots.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    Ok(screenshots)
+}
+
+fn write_screenshot_index(
+    paths: &InternalPaths,
+    screenshots: &[RecentScreenshotSummary],
+) -> Result<(), String> {
+    let values = screenshots
+        .iter()
+        .map(|screenshot| json!({ "path": screenshot.path, "createdAt": screenshot.created_at }))
+        .collect::<Vec<_>>();
+    write_json_pretty(&screenshot_index_path(paths), &Value::Array(values))
 }
 
 fn read_json_array(path: &Path) -> Result<Vec<Value>, String> {
@@ -589,6 +716,7 @@ mod tests {
             title: "Demo".to_string(),
             path: project_path.to_string_lossy().to_string(),
             recording_path: Some(recording_path.clone()),
+            screenshot_path: None,
             source_name: Some("Display 1".to_string()),
             created_at: "100".to_string(),
             updated_at: "100".to_string(),
@@ -602,6 +730,7 @@ mod tests {
             &project_path,
             Some("Demo Edited".to_string()),
             Some(recording_path.clone()),
+            None,
             Some("Display 1".to_string()),
             Some(json!({ "timelineEdits": { "clipSplitTimes": [1.25] } })),
         )
@@ -652,6 +781,7 @@ mod tests {
                 &project_path,
                 Some(format!("Demo {index}")),
                 Some(recording_path.clone()),
+                None,
                 Some("Display 1".to_string()),
                 Some(json!({ "timelineEdits": { "clipSplitTimes": [index] } })),
             )
@@ -665,6 +795,81 @@ mod tests {
             .count();
         assert_eq!(matching, 1);
         assert_eq!(projects[0].title, "Demo 1");
+    }
+
+    #[test]
+    fn saves_screenshot_projects_and_recent_screenshot_index() {
+        let paths = test_paths("screenshot-project");
+        paths.ensure().unwrap();
+        let screenshot_path = paths
+            .screenshots_dir
+            .join("shot.png")
+            .to_string_lossy()
+            .to_string();
+
+        let summary = save_project_document(
+            &paths,
+            "Shot",
+            None,
+            Some(screenshot_path.clone()),
+            Some("Display 1".to_string()),
+            json!({ "screenshot": { "padding": 72 } }),
+        )
+        .unwrap();
+        remember_screenshot(&paths, &screenshot_path).unwrap();
+
+        let saved: ProjectDocument =
+            serde_json::from_str(&fs::read_to_string(&summary.path).unwrap()).unwrap();
+        let recent = read_screenshot_index(&paths).unwrap();
+        assert_eq!(summary.recording_path, None);
+        assert_eq!(summary.screenshot_path, Some(screenshot_path.clone()));
+        assert_eq!(saved.screenshot_path, Some(screenshot_path.clone()));
+        assert_eq!(saved.editor_state["screenshot"]["padding"], 72);
+        assert_eq!(recent[0].path, screenshot_path);
+    }
+
+    #[test]
+    fn update_project_preserves_screenshot_path_and_updates_state() {
+        let paths = test_paths("update-screenshot-project");
+        paths.ensure().unwrap();
+        let project_path = paths.projects_dir.join("shot.openrecorder");
+        let screenshot_path = paths
+            .screenshots_dir
+            .join("shot.png")
+            .to_string_lossy()
+            .to_string();
+        write_json_pretty(
+            &project_path,
+            &json!({
+                "schemaVersion": 2,
+                "title": "Shot",
+                "screenshotPath": screenshot_path,
+                "sourceName": "Display 1",
+                "createdAt": "100",
+                "updatedAt": "100",
+                "editorState": { "screenshot": { "padding": 56 } }
+            }),
+        )
+        .unwrap();
+
+        let updated = update_project_document(
+            &paths,
+            &project_path,
+            Some("Shot Edited".to_string()),
+            None,
+            Some(screenshot_path.clone()),
+            Some("Display 1".to_string()),
+            Some(json!({ "screenshot": { "padding": 96 } })),
+        )
+        .unwrap();
+
+        let saved: ProjectDocument =
+            serde_json::from_str(&fs::read_to_string(&project_path).unwrap()).unwrap();
+        assert_eq!(updated.title, "Shot Edited");
+        assert_eq!(updated.screenshot_path, Some(screenshot_path.clone()));
+        assert_eq!(updated.recording_path, None);
+        assert_eq!(saved.screenshot_path, Some(screenshot_path));
+        assert_eq!(saved.editor_state["screenshot"]["padding"], 96);
     }
 
     fn test_paths(name: &str) -> InternalPaths {

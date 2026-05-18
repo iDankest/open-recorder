@@ -6,8 +6,14 @@ import SwiftUI
 struct ScreenshotEditorStudioView: View {
     @EnvironmentObject private var model: AppModel
     var screenshotURL: URL?
+    var projectPath: String?
+    var editorTitle: String?
+    var initialScreenshotState: ScreenshotEditorState?
+    var editorSessionID: UUID?
     @ObservedObject var editor: ScreenshotEditorController
+    @StateObject private var autosave = ProjectAutosaveCoordinator()
     @State private var isExportDialogPresented = false
+    @State private var appliedScreenshotStateIdentity: String?
     private let sidebarWidth: CGFloat = 320
 
     var body: some View {
@@ -57,7 +63,30 @@ struct ScreenshotEditorStudioView: View {
             isExportDialogPresented = true
         }
         .onChange(of: screenshotURL) { _, _ in
-            editor.resetHistory()
+            applyInitialEditorState(markAutosaved: true)
+        }
+        .onChange(of: editorSessionID) { _, _ in
+            applyInitialEditorState(markAutosaved: true)
+        }
+        .onChange(of: editor.state) { _, _ in
+            autosave.schedule(autosaveSnapshot)
+        }
+        .onAppear {
+            autosave.configure(
+                saveHandler: { snapshot in
+                    try await model.autosaveProject(snapshot)
+                },
+                statusHandler: { status in
+                    model.handleProjectAutosaveStatus(status)
+                }
+            )
+            applyInitialEditorState(markAutosaved: true)
+        }
+        .onDisappear {
+            let snapshot = autosaveSnapshot
+            Task {
+                await autosave.flush(snapshot)
+            }
         }
     }
 
@@ -130,6 +159,28 @@ struct ScreenshotEditorStudioView: View {
         } else {
             editor.endUndoTransaction()
         }
+    }
+
+    private func applyInitialEditorState(markAutosaved: Bool = false) {
+        let identity = editorSessionID?.uuidString ?? screenshotURL?.path ?? "empty"
+        guard appliedScreenshotStateIdentity != identity else { return }
+        appliedScreenshotStateIdentity = identity
+        editor.apply(initialScreenshotState ?? .default)
+        if markAutosaved {
+            autosave.markSaved(autosaveSnapshot)
+        }
+    }
+
+    private var autosaveSnapshot: ProjectAutosaveSnapshot? {
+        guard let projectPath, let screenshotURL else { return nil }
+        return ProjectAutosaveSnapshot(
+            projectPath: projectPath,
+            title: editorTitle ?? EditorMediaKind.screenshot.displayTitle(for: screenshotURL),
+            recordingPath: nil,
+            screenshotPath: screenshotURL.path,
+            sourceName: nil,
+            editorState: ProjectEditorState(screenshot: editor.state)
+        )
     }
 }
 

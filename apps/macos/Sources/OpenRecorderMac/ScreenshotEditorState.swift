@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-struct ScreenshotEditorState: Equatable {
+struct ScreenshotEditorState: Codable, Equatable, Hashable {
     var background: BackgroundStyle = BackgroundPresets.default
     var padding = 56.0
     var backgroundRoundness = 28.0
@@ -10,6 +10,42 @@ struct ScreenshotEditorState: Equatable {
     var imageShadow = 0.45
 
     static let `default` = ScreenshotEditorState()
+
+    init(
+        background: BackgroundStyle = BackgroundPresets.default,
+        padding: Double = 56.0,
+        backgroundRoundness: Double = 28.0,
+        backgroundShadow: Double = 0.0,
+        imageRoundness: Double = 10.0,
+        imageShadow: Double = 0.45
+    ) {
+        self.background = background
+        self.padding = padding
+        self.backgroundRoundness = backgroundRoundness
+        self.backgroundShadow = backgroundShadow
+        self.imageRoundness = imageRoundness
+        self.imageShadow = imageShadow
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case background
+        case padding
+        case backgroundRoundness
+        case backgroundShadow
+        case imageRoundness
+        case imageShadow
+    }
+
+    init(from decoder: Decoder) throws {
+        let defaults = Self.default
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        background = try container.decodeIfPresent(BackgroundStyle.self, forKey: .background) ?? defaults.background
+        padding = try container.decodeIfPresent(Double.self, forKey: .padding) ?? defaults.padding
+        backgroundRoundness = try container.decodeIfPresent(Double.self, forKey: .backgroundRoundness) ?? defaults.backgroundRoundness
+        backgroundShadow = try container.decodeIfPresent(Double.self, forKey: .backgroundShadow) ?? defaults.backgroundShadow
+        imageRoundness = try container.decodeIfPresent(Double.self, forKey: .imageRoundness) ?? defaults.imageRoundness
+        imageShadow = try container.decodeIfPresent(Double.self, forKey: .imageShadow) ?? defaults.imageShadow
+    }
 }
 
 @MainActor
@@ -33,6 +69,11 @@ final class ScreenshotEditorController: ObservableObject {
     func resetHistory() {
         history.reset()
         objectWillChange.send()
+    }
+
+    func apply(_ nextState: ScreenshotEditorState) {
+        state = nextState
+        resetHistory()
     }
 
     func beginUndoTransaction() {

@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 
 struct ProjectsStudioView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var selectedTab: ProjectLibraryTab = .screenRecordings
 
     var body: some View {
         ScrollView {
@@ -22,7 +23,7 @@ struct ProjectsStudioView: View {
                                 .padding(.vertical, 4)
                                 .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
                         }
-                        Text("Open a saved project or browse recordings from this device.")
+                        Text("Open saved captures from this device.")
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                     }
@@ -41,13 +42,55 @@ struct ProjectsStudioView: View {
                     }
                 }
 
+                ProjectLibraryTabBar(
+                    selection: $selectedTab,
+                    recordingCount: recordingProjects.count,
+                    screenshotCount: screenshotProjects.count
+                )
+
                 HStack(spacing: 16) {
-                    ProjectActionCard(title: "Open project", symbolName: "plus", description: "Load an Open Recorder editing session.") {
-                        model.openProjectFile()
-                    }
-                    ProjectActionCard(title: "Recordings folder", symbolName: "folder", description: "Jump to saved captures and exported videos.") {
-                        if let path = model.paths?.recordingsDir {
-                            model.openPath(path)
+                    switch selectedTab {
+                    case .screenRecordings:
+                        ProjectActionCard(
+                            title: "Open project",
+                            symbolName: "plus",
+                            description: "Load an Open Recorder editing session.",
+                            buttonTitle: "Choose file",
+                            style: .primary
+                        ) {
+                            model.openProjectFile()
+                        }
+                        ProjectActionCard(
+                            title: "Recordings folder",
+                            symbolName: "folder",
+                            description: "Jump to saved recordings and exports.",
+                            buttonTitle: "Browse recordings",
+                            style: .secondary
+                        ) {
+                            if let path = model.paths?.recordingsDir {
+                                model.openPath(path)
+                            }
+                        }
+                    case .screenshots:
+                        ProjectActionCard(
+                            title: "Open project",
+                            symbolName: "plus",
+                            description: "Load a saved screenshot project.",
+                            buttonTitle: "Choose file",
+                            style: .primary
+                        ) {
+                            model.openProjectFile()
+                        }
+                        ProjectActionCard(
+                            title: "Screenshots folder",
+                            symbolName: "photo.on.rectangle",
+                            description: "Jump to captured screenshot images.",
+                            buttonTitle: "Browse screenshots",
+                            style: .secondary
+                        ) {
+                            if let path = model.paths?.screenshotsDir {
+                                model.openPath(path)
+                            }
                         }
                     }
                 }
@@ -57,20 +100,20 @@ struct ProjectsStudioView: View {
                     .frame(height: 1)
 
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Recent projects")
+                    HStack(spacing: 8) {
+                        Text(selectedTab.listTitle)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.secondary)
                         Spacer()
                     }
 
-                    if model.projects.isEmpty {
-                        EmptyProjectsPanel()
+                    if selectedProjects.isEmpty {
+                        EmptyProjectsPanel(tab: selectedTab)
                     } else {
                         VStack(spacing: 0) {
-                            ForEach(model.projects) { project in
+                            ForEach(selectedProjects) { project in
                                 ProjectListRow(project: project)
-                                if project.id != model.projects.last?.id {
+                                if project.id != selectedProjects.last?.id {
                                     Rectangle()
                                         .fill(Color.studioBorder)
                                         .frame(height: 1)
@@ -91,12 +134,114 @@ struct ProjectsStudioView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.studioMutedBackground)
     }
+
+    private var recordingProjects: [ProjectSummary] {
+        model.projects.filter { $0.mediaKind == .video }
+    }
+
+    private var screenshotProjects: [ProjectSummary] {
+        model.projects.filter { $0.mediaKind == .screenshot }
+    }
+
+    private var selectedProjects: [ProjectSummary] {
+        switch selectedTab {
+        case .screenRecordings:
+            recordingProjects
+        case .screenshots:
+            screenshotProjects
+        }
+    }
+}
+
+enum ProjectLibraryTab: String, CaseIterable, Identifiable {
+    case screenRecordings
+    case screenshots
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .screenRecordings: "Screen Recordings"
+        case .screenshots: "Screenshots"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .screenRecordings: "video.fill"
+        case .screenshots: "photo.fill"
+        }
+    }
+
+    var listTitle: String {
+        switch self {
+        case .screenRecordings: "Recent screen recordings"
+        case .screenshots: "Recent screenshots"
+        }
+    }
+}
+
+struct ProjectLibraryTabBar: View {
+    @Binding var selection: ProjectLibraryTab
+    var recordingCount: Int
+    var screenshotCount: Int
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(ProjectLibraryTab.allCases) { tab in
+                StudioButton(hitTarget: .rounded(8), help: tab.title) {
+                    selection = tab
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: tab.symbolName)
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(tab.title)
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                        Text("\(count(for: tab))")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(selection == tab ? Color.white.opacity(0.75) : Color.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(selection == tab ? 0.16 : 0.06), in: Capsule())
+                    }
+                    .frame(height: 34)
+                    .padding(.horizontal, 12)
+                    .foregroundStyle(selection == tab ? Color.white : Color.secondary)
+                    .background(selection == tab ? Color.brand : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+                }
+            }
+            Spacer()
+        }
+        .padding(4)
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.studioBorder.opacity(0.9))
+        }
+    }
+
+    private func count(for tab: ProjectLibraryTab) -> Int {
+        switch tab {
+        case .screenRecordings:
+            recordingCount
+        case .screenshots:
+            screenshotCount
+        }
+    }
+}
+
+enum ProjectActionCardStyle: Equatable {
+    case primary
+    case secondary
 }
 
 struct ProjectActionCard: View {
     var title: String
     var symbolName: String
     var description: String
+    var buttonTitle: String
+    var style: ProjectActionCardStyle
     var action: () -> Void
 
     var body: some View {
@@ -111,12 +256,12 @@ struct ProjectActionCard: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
             StudioButton(hitTarget: .rounded(8), action: action) {
-                Label(title == "Open project" ? "Choose file" : "Browse recordings", systemImage: symbolName)
+                Label(buttonTitle, systemImage: symbolName)
                     .font(.system(size: 13, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
-                    .background(title == "Open project" ? Color.brand : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
-                    .foregroundStyle(title == "Open project" ? Color.white : Color.primary)
+                    .background(style == .primary ? Color.brand : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+                    .foregroundStyle(style == .primary ? Color.white : Color.primary)
             }
         }
         .padding(20)
@@ -140,7 +285,7 @@ struct ProjectListRow: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "film")
+                Image(systemName: project.mediaKind.titleIconSystemName)
                     .font(.system(size: 18, weight: .medium))
                     .frame(width: 40, height: 40)
                     .background(Color.brand.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
@@ -168,7 +313,7 @@ struct ProjectListRow: View {
                         }
                     }
                     HStack(spacing: 12) {
-                        Text(project.sourceName ?? URL(fileURLWithPath: project.recordingPath ?? project.path).lastPathComponent)
+                        Text(project.sourceName ?? URL(fileURLWithPath: project.mediaPath ?? project.path).lastPathComponent)
                             .lineLimit(1)
                         Label(formattedProjectDate(project.lastOpenedAt), systemImage: "clock")
                     }
@@ -193,16 +338,18 @@ struct ProjectListRow: View {
 }
 
 struct EmptyProjectsPanel: View {
+    var tab: ProjectLibraryTab
+
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "folder")
+            Image(systemName: tab.symbolName)
                 .font(.system(size: 30))
                 .frame(width: 64, height: 64)
                 .foregroundStyle(Color.brand)
                 .background(Color.brand.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
-            Text("No recent projects yet")
+            Text(tab == .screenRecordings ? "No recent recordings yet" : "No recent screenshots yet")
                 .font(.system(size: 16, weight: .semibold))
-            Text("Recent project shortcuts will appear here after you save or open one.")
+            Text(tab == .screenRecordings ? "Screen recording projects will appear here after you save or open one." : "Screenshot projects will appear here after you capture or open one.")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
         }
@@ -229,4 +376,3 @@ func formattedProjectDate(_ value: String) -> String {
     formatter.dateFormat = "MMM d, h:mm a"
     return formatter.string(from: date)
 }
-

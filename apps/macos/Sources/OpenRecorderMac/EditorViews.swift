@@ -12,7 +12,14 @@ struct EditorStudioView: View {
 
     var body: some View {
         if screenshotURL != nil {
-            ScreenshotEditorStudioView(screenshotURL: screenshotURL, editor: screenshotEditor)
+            ScreenshotEditorStudioView(
+                screenshotURL: screenshotURL,
+                projectPath: projectPath,
+                editorTitle: editorTitle,
+                initialScreenshotState: initialScreenshotState,
+                editorSessionID: editorSession?.id,
+                editor: screenshotEditor
+            )
         } else {
             VideoEditorStudioView(
                 videoURL: videoURL,
@@ -55,6 +62,10 @@ struct EditorStudioView: View {
 
     private var initialVideoState: ProjectVideoEditorState? {
         editorSession?.videoEditorState ?? model.lastEditorSession?.videoEditorState
+    }
+
+    private var initialScreenshotState: ScreenshotEditorState? {
+        editorSession?.screenshotEditorState ?? model.lastEditorSession?.screenshotEditorState
     }
 }
 
@@ -420,6 +431,7 @@ struct VideoEditorStudioView: View {
             projectPath: projectPath,
             title: editorTitle ?? EditorMediaKind.video.displayTitle(for: videoURL),
             recordingPath: videoURL.path,
+            screenshotPath: nil,
             sourceName: recordingSession?.sourceName,
             editorState: ProjectEditorState(timelineEdits: timelineEdits.snapshot, video: currentVideoState)
         )
