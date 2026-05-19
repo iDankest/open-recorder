@@ -403,23 +403,24 @@ final class SourceSelectorWindowSizingView: NSView {
 }
 
 struct WindowCommandBridge: View {
-    @EnvironmentObject private var model: AppModel
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
+    var shell: AppShellDriver
 
     var body: some View {
         Color.clear
             .frame(width: 1, height: 1)
             .onAppear {
-                handle(model.windowCommand)
+                handle(shell.state.windowCommand)
             }
-            .onChange(of: model.windowCommand?.id) { _, _ in
-                handle(model.windowCommand)
+            .onChange(of: shell.state.windowCommand?.id) { _, _ in
+                handle(shell.state.windowCommand)
             }
     }
 
     private func handle(_ command: NativeWindowCommand?) {
-        guard let command = model.consumeWindowCommand(command) else { return }
+        guard let command, shell.state.windowCommand?.id == command.id else { return }
+        shell.send(.windowCommandConsumed(command.id))
 
         switch command.action {
         case .showHUD:

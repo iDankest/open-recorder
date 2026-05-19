@@ -6,7 +6,9 @@ import UniformTypeIdentifiers
 
 struct CaptureStudioView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var sourceSelector = SourceSelectorDriver(sourceTab: .screens)
+    private var sourceSelector: SourceSelectorDriver {
+        model.appShell.inlineSourceSelector
+    }
 
     private var visibleTabs: [SourceSelectorTab] {
         SourceSelectorTab.allCases
@@ -35,6 +37,15 @@ struct CaptureStudioView: View {
                     SourceSelectorCard(
                         sourceTab: sourceSelector.sourceTabBinding,
                         visibleTabs: sourceSelector.state.visibleTabs,
+                        allSources: model.capture.sources,
+                        selectedSourceID: model.selectedSource?.id,
+                        captureMode: model.captureMode,
+                        onRefresh: {
+                            sourceSelector.send(.refreshRequested)
+                        },
+                        onSelectSource: { source in
+                            model.selectSource(source)
+                        },
                         onDrawArea: {
                             model.requestInteractiveAreaSelection()
                         }

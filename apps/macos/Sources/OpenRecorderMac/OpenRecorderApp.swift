@@ -11,20 +11,12 @@ final class OpenRecorderAppDelegate: NSObject, NSApplicationDelegate {
     private let statusItemController = OpenRecorderStatusItemController()
     private let hotKeyController = GlobalRecordingHotKeyController()
     private let updateChecker = UpdateChecker.shared
-    private var windowCommandCancellable: AnyCancellable?
 
     func attach(model: AppModel) {
         if self.model !== model {
             self.model = model
             statusItemController.attach(model: model, windowActions: windowActions)
             hotKeyController.attach(model: model)
-            windowCommandCancellable = model.$windowCommand
-                .receive(on: RunLoop.main)
-                .sink { [weak self] command in
-                    Task { @MainActor in
-                        self?.handleWindowCommand(command)
-                    }
-                }
         } else {
             self.model = model
         }

@@ -7,7 +7,9 @@ import UniformTypeIdentifiers
 struct SourceSelectorWindowView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismissWindow) private var dismissWindow
-    @State private var sourceSelector = SourceSelectorDriver(sourceTab: .windows, visibleTabs: [.windows, .area])
+    private var sourceSelector: SourceSelectorDriver {
+        model.appShell.floatingSourceSelector
+    }
 
     private var visibleTabs: [SourceSelectorTab] {
         [.windows, .area]
@@ -18,8 +20,17 @@ struct SourceSelectorWindowView: View {
             SourceSelectorCard(
                 sourceTab: sourceSelector.sourceTabBinding,
                 visibleTabs: sourceSelector.state.visibleTabs,
+                allSources: model.capture.sources,
+                selectedSourceID: model.selectedSource?.id,
+                captureMode: model.captureMode,
                 onCancel: {
                     sourceSelector.send(.cancelRequested)
+                },
+                onRefresh: {
+                    sourceSelector.send(.refreshRequested)
+                },
+                onSelectSource: { source in
+                    model.selectSource(source)
                 },
                 onShare: {
                     sourceSelector.send(.shareRequested)
@@ -116,21 +127,25 @@ enum SourceSelectorTab: String, CaseIterable, Identifiable {
 
 
 struct SourceSelectorCard: View {
-    @EnvironmentObject private var model: AppModel
     @Binding var sourceTab: SourceSelectorTab
     var visibleTabs: [SourceSelectorTab]
+    var allSources: [CaptureSource]
+    var selectedSourceID: String?
+    var captureMode: CaptureMode
     var onCancel: (() -> Void)? = nil
+    var onRefresh: (() -> Void)? = nil
+    var onSelectSource: (CaptureSource) -> Void = { _ in }
     var onShare: (() -> Void)? = nil
     var onDrawArea: (() -> Void)? = nil
 
     private var sources: [CaptureSource] {
         switch sourceTab {
         case .screens:
-            model.capture.sources.filter { $0.kind == .display }
+            allSources.filter { $0.kind == .display }
         case .windows:
-            model.capture.sources.filter { $0.kind == .window }
+            allSources.filter { $0.kind == .window }
         case .area:
-            model.capture.sources.filter { $0.kind == .area }
+            allSources.filter { $0.kind == .area }
         }
     }
 
@@ -145,7 +160,7 @@ struct SourceSelectorCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text("\(model.capture.sources.filter { $0.kind != .area }.count) sources")
+                Text("\(allSources.filter { $0.kind != .area }.count) sources")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 9)
@@ -163,7 +178,12 @@ struct SourceSelectorCard: View {
                 if sources.isEmpty {
                     SourceEmptyState(sourceTab: sourceTab, onDrawArea: onDrawArea)
                 } else {
-                    SourceGrid(sources: sources, sourceTab: sourceTab)
+                    SourceGrid(
+                        sources: sources,
+                        sourceTab: sourceTab,
+                        selectedSourceID: selectedSourceID,
+                        onSelectSource: onSelectSource
+                    )
                 }
             }
             .padding(.horizontal, 16)
@@ -186,7 +206,7 @@ struct SourceSelectorCard: View {
                 .foregroundStyle(.secondary)
 
                 StudioButton(hitTarget: .rounded(8)) {
-                    model.reloadSourcesForPreview()
+                    onRefresh?()
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                         .frame(height: 34)
@@ -221,7 +241,7 @@ struct SourceSelectorCard: View {
     }
 
     private var selectorDescription: String {
-        if model.captureMode == .screenshot {
+        if captureMode == .screenshot {
             "Pick a screen, app window, or drawn area for this screenshot."
         } else {
             "Pick a screen, app window, or drawn area for the next recording."
@@ -229,10 +249,10 @@ struct SourceSelectorCard: View {
     }
 
     private var canShareSource: Bool {
-        guard let selectedSource = model.selectedSource else {
+        guard let selectedSourceID else {
             return false
         }
-        return sources.contains { $0.id == selectedSource.id }
+        return sources.contains { $0.id == selectedSourceID }
     }
 }
 
@@ -279,9 +299,10 @@ struct StudioSegmentedTabButton: View {
 }
 
 struct SourceGrid: View {
-    @EnvironmentObject private var model: AppModel
     var sources: [CaptureSource]
     var sourceTab: SourceSelectorTab
+    var selectedSourceID: String?
+    var onSelectSource: (CaptureSource) -> Void
 
     private var columns: [GridItem] {
         let count = sourceTab == .windows ? 3 : min(max(sources.count, 1), 3)
@@ -307,10 +328,10 @@ struct SourceGrid: View {
             ForEach(sources) { source in
                 SourceTile(
                     source: source,
-                    isSelected: model.selectedSource?.id == source.id,
+                    isSelected: selectedSourceID == source.id,
                     isCompact: sourceTab == .windows
                 ) {
-                    model.selectSource(source)
+                    onSelectSource(source)
                 }
             }
         }

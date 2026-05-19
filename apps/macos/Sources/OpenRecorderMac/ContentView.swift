@@ -25,7 +25,7 @@ struct ContentView: View {
             case .hud:
                 hudWindowContent
             case .onboarding:
-                OnboardingView()
+                OnboardingView(driver: model.appShell.onboarding)
                     .frame(width: OnboardingWindowMetrics.width, height: OnboardingWindowMetrics.height)
                     .background(WindowConfigurator(role: .onboarding))
             case .sourceSelector:
@@ -48,7 +48,7 @@ struct ContentView: View {
                     .background(WindowConfigurator(role: .studio))
             }
         }
-        .overlay(WindowCommandBridge().allowsHitTesting(false))
+        .overlay(WindowCommandBridge(shell: model.appShell).allowsHitTesting(false))
         .environmentObject(model)
         .preferredColorScheme(.dark)
         .onOpenURL { url in
@@ -94,7 +94,9 @@ struct ContentView: View {
 }
 
 struct SettingsView: View {
+    @EnvironmentObject private var model: AppModel
+
     var body: some View {
-        SettingsStudioView()
+        SettingsStudioView(driver: model.appShell.settings)
     }
 }

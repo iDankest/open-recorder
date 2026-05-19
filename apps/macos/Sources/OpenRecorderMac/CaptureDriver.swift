@@ -15,9 +15,9 @@ struct CaptureEffectHandlers {
     var cancelRecordingStart: () -> Void = {}
     var cancelScreenshotCapture: () -> Void = {}
     var prepareRecordingFile: (CaptureSource) -> Void = { _ in }
-    var runRecordingStart: (CaptureSource, URL) -> Void = { _, _ in }
-    var stopRecording: (CaptureSource?) -> Void = { _ in }
-    var runScreenshotCapture: (CaptureSource) -> Void = { _ in }
+    var runRecordingStart: (CaptureSource, URL) async -> Void = { _, _ in }
+    var stopRecording: (CaptureSource?) async -> Void = { _ in }
+    var runScreenshotCapture: (CaptureSource) async -> Void = { _ in }
 }
 
 @Observable
@@ -29,6 +29,8 @@ final class CaptureDriver {
     @ObservationIgnored private var transitionHandler: (CaptureTransition) -> Void = { _ in }
     @ObservationIgnored private var effectObserver: ([CaptureEffect]) -> Void = { _ in }
     @ObservationIgnored private var effectHandlers = CaptureEffectHandlers()
+    @ObservationIgnored private var recordingStartTask: Task<Void, Never>?
+    @ObservationIgnored private var screenshotCaptureTask: Task<Void, Never>?
 
     init(initialState: CaptureState = .choosingMode) {
         state = initialState
@@ -84,17 +86,35 @@ final class CaptureDriver {
             case .flashDisplay(let source):
                 effectHandlers.flashDisplay(source)
             case .cancelRecordingStart:
+                recordingStartTask?.cancel()
+                recordingStartTask = nil
                 effectHandlers.cancelRecordingStart()
             case .cancelScreenshotCapture:
+                screenshotCaptureTask?.cancel()
+                screenshotCaptureTask = nil
                 effectHandlers.cancelScreenshotCapture()
             case .prepareRecordingFile(let source):
                 effectHandlers.prepareRecordingFile(source)
             case .runRecordingStart(let source, let outputURL):
-                effectHandlers.runRecordingStart(source, outputURL)
+                recordingStartTask?.cancel()
+                recordingStartTask = Task { [weak self] in
+                    await self?.effectHandlers.runRecordingStart(source, outputURL)
+                    await MainActor.run {
+                        self?.recordingStartTask = nil
+                    }
+                }
             case .stopRecording(let source):
-                effectHandlers.stopRecording(source)
+                Task { [weak self] in
+                    await self?.effectHandlers.stopRecording(source)
+                }
             case .runScreenshotCapture(let source):
-                effectHandlers.runScreenshotCapture(source)
+                screenshotCaptureTask?.cancel()
+                screenshotCaptureTask = Task { [weak self] in
+                    await self?.effectHandlers.runScreenshotCapture(source)
+                    await MainActor.run {
+                        self?.screenshotCaptureTask = nil
+                    }
+                }
             }
         }
     }

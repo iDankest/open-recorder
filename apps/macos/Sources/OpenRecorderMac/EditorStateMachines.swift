@@ -573,6 +573,7 @@ extension EditorWorkspaceState {
 @MainActor
 final class EditorWorkspaceDriver {
     var state = EditorWorkspaceState()
+    let video = VideoEditorDriver()
     let timeline = TimelineEditDriver()
     let screenshot = ScreenshotEditorDriver()
 

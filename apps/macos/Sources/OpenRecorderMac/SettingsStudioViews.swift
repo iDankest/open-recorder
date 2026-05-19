@@ -5,8 +5,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsStudioView: View {
-    @EnvironmentObject private var model: AppModel
-    @State private var driver = SettingsDriver(createZoomsAutomatically: false)
+    var driver: SettingsDriver
 
     var body: some View {
         ScrollView {
@@ -83,40 +82,6 @@ struct SettingsStudioView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.studioMutedBackground)
-        .onAppear {
-            driver.configure(
-                refreshService: {
-                    if model.refreshBackendState() {
-                        driver.send(.serviceRefreshSucceeded(serviceHealth: model.serviceHealth, paths: model.paths))
-                    } else {
-                        driver.send(.serviceRefreshFailed(model.statusMessage))
-                    }
-                },
-                persistAutoZoomPreference: { value in
-                    model.createZoomsAutomatically = value
-                },
-                openFolder: { path in
-                    model.openPath(path)
-                },
-                openScreenRecordingSettings: {
-                    model.openPrivacySettings()
-                },
-                openAccessibilitySettings: {
-                    model.openAccessibilitySettings()
-                },
-                showOnboarding: {
-                    model.showOnboarding()
-                }
-            )
-            driver.send(.autoZoomPreferenceSynced(model.createZoomsAutomatically))
-            driver.send(.appeared(serviceHealth: model.serviceHealth, paths: model.paths))
-        }
-        .onChange(of: model.serviceHealth) { _, _ in
-            driver.send(.appeared(serviceHealth: model.serviceHealth, paths: model.paths))
-        }
-        .onChange(of: model.paths) { _, _ in
-            driver.send(.appeared(serviceHealth: model.serviceHealth, paths: model.paths))
-        }
     }
 }
 

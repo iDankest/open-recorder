@@ -41,6 +41,11 @@ struct ScreenshotEditorStudioView: View {
                 imageRoundness: editor.binding(for: \.imageRoundness),
                 imageShadow: editor.binding(for: \.imageShadow),
                 onEditingChanged: handleUndoTransaction,
+                onRevealFile: {
+                    if let screenshotURL {
+                        model.reveal(screenshotURL.path)
+                    }
+                },
                 onExport: {
                     editor.send(.exportRequested)
                 }
@@ -304,7 +309,6 @@ struct ScreenshotCanvas: View {
 }
 
 struct ScreenshotSettingsPanel: View {
-    @EnvironmentObject private var model: AppModel
     @Binding var background: BackgroundStyle
     @Binding var padding: Double
     @Binding var backgroundRoundness: Double
@@ -312,6 +316,7 @@ struct ScreenshotSettingsPanel: View {
     @Binding var imageRoundness: Double
     @Binding var imageShadow: Double
     var onEditingChanged: (Bool) -> Void = { _ in }
+    var onRevealFile: () -> Void = {}
     var onExport: () -> Void
 
     var body: some View {
@@ -339,9 +344,7 @@ struct ScreenshotSettingsPanel: View {
 
             HStack(spacing: 8) {
                 InspectorFooterButton(title: "Reveal File", symbolName: "folder") {
-                    if let url = model.currentScreenshotURL {
-                        model.reveal(url.path)
-                    }
+                    onRevealFile()
                 }
                 InspectorFooterButton(title: "Export", symbolName: "square.and.arrow.up") {
                     onExport()

@@ -6,54 +6,38 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class AppModel: ObservableObject {
-    @Published var selectedSection: AppSection = .capture {
-        didSet {
-            guard !isSyncingAppShellMirror else { return }
-            appShell.state.selectedSection = selectedSection
-        }
+    var selectedSection: AppSection {
+        get { appShell.state.selectedSection }
+        set { mutateAppShellState { $0.selectedSection = newValue } }
     }
     @Published private(set) var captureState: CaptureState = .choosingMode
-    @Published var paths: AppPaths? {
-        didSet {
-            guard !isSyncingAppShellMirror else { return }
-            appShell.state.paths = paths
-        }
+    var paths: AppPaths? {
+        get { appShell.state.paths }
+        set { mutateAppShellState { $0.paths = newValue } }
     }
-    @Published var projects: [ProjectSummary] = [] {
-        didSet {
-            guard !isSyncingAppShellMirror else { return }
-            appShell.state.projects = projects
-        }
+    var projects: [ProjectSummary] {
+        get { appShell.state.projects }
+        set { mutateAppShellState { $0.projects = newValue } }
     }
-    @Published var currentVideoURL: URL? {
-        didSet {
-            guard !isSyncingAppShellMirror else { return }
-            appShell.state.currentVideoURL = currentVideoURL
-        }
+    var currentVideoURL: URL? {
+        get { appShell.state.currentVideoURL }
+        set { mutateAppShellState { $0.currentVideoURL = newValue } }
     }
-    @Published var currentScreenshotURL: URL? {
-        didSet {
-            guard !isSyncingAppShellMirror else { return }
-            appShell.state.currentScreenshotURL = currentScreenshotURL
-        }
+    var currentScreenshotURL: URL? {
+        get { appShell.state.currentScreenshotURL }
+        set { mutateAppShellState { $0.currentScreenshotURL = newValue } }
     }
-    @Published var lastEditorSession: EditorSession? {
-        didSet {
-            guard !isSyncingAppShellMirror else { return }
-            appShell.state.lastEditorSession = lastEditorSession
-        }
+    var lastEditorSession: EditorSession? {
+        get { appShell.state.lastEditorSession }
+        set { mutateAppShellState { $0.lastEditorSession = newValue } }
     }
-    @Published var statusMessage = "Ready" {
-        didSet {
-            guard !isSyncingAppShellMirror else { return }
-            appShell.state.statusMessage = statusMessage
-        }
+    var statusMessage: String {
+        get { appShell.state.statusMessage }
+        set { mutateAppShellState { $0.statusMessage = newValue } }
     }
-    @Published var serviceHealth: HealthPayload? {
-        didSet {
-            guard !isSyncingAppShellMirror else { return }
-            appShell.state.serviceHealth = serviceHealth
-        }
+    var serviceHealth: HealthPayload? {
+        get { appShell.state.serviceHealth }
+        set { mutateAppShellState { $0.serviceHealth = newValue } }
     }
     @Published var includeMicrophone = false
     @Published var includeSystemAudio = false
@@ -69,43 +53,23 @@ final class AppModel: ObservableObject {
     @Published var cameraDevices: [CaptureDeviceInfo] = []
     @Published var selectedMicrophoneDeviceID: String?
     @Published var selectedCameraDeviceID: String?
-    @Published var windowCommand: NativeWindowCommand? {
-        didSet {
-            guard !isSyncingAppShellMirror else { return }
-            appShell.state.windowCommand = windowCommand
-        }
-    }
-    @Published var isVideoExporting = false
-    @Published var videoExportPhase: VideoExportPhase = .idle
-    @Published var videoExportProgress = 0.0
-    @Published var videoExportError: String?
-    @Published var exportedVideoURL: URL?
     @Published var screenRecordingPermissionState: ScreenRecordingPermissionState
     @Published var accessibilityPermissionState: AccessibilityPermissionState
     @Published var onboardingStatusMessage = ""
 
-    private var pendingVideoExportTempURL: URL?
-    private var pendingVideoExportSourceURL: URL?
-    private var pendingVideoExportOptions: VideoExportOptions?
-    private var videoExportTask: Task<Void, Never>?
-    private var videoExportCancellationToken: VideoExportCancellationToken?
-
-    private var handledWindowCommandID: UUID?
-    private var isSyncingAppShellMirror = false
     private var activeScreenStartedAt: Date?
     private var activeFacecamStartedAt: Date?
     private var activeFacecamURL: URL?
     private var displayFlashWindows: [NSWindow] = []
-    private var recordingStartTask: Task<Void, Never>?
-    private var screenshotCaptureTask: Task<Void, Never>?
     private let countdownOverlayController = RecordingCountdownOverlayController()
     private let captureUIHideDelayNanoseconds: UInt64
 
     let service: RustServiceClient
     let capture: CaptureController
     let appShell = AppShellDriver()
-    let captureMachine = CaptureDriver()
-    let captureOptions = CaptureOptionsDriver()
+    var captureMachine: CaptureDriver { appShell.capture }
+    var captureOptions: CaptureOptionsDriver { appShell.captureOptions }
+    var videoExport: VideoExportDriver { appShell.videoExport }
     private let screenRecordingPermission: ScreenRecordingPermission
     private let accessibilityPermission: AccessibilityPermission
     private let onboardingStore: OnboardingStateStore
@@ -157,9 +121,7 @@ final class AppModel: ObservableObject {
             refreshBackend: { [weak self] in
                 self?.refreshBackendState()
             },
-            emitWindowCommand: { [weak self] command in
-                self?.windowCommand = command
-            },
+            emitWindowCommand: { _ in },
             setStatusMessage: { [weak self] message in
                 self?.statusMessage = message
             }
@@ -206,33 +168,20 @@ final class AppModel: ObservableObject {
                     self?.flashDisplay(for: source)
                 },
                 cancelRecordingStart: { [weak self] in
-                    self?.recordingStartTask?.cancel()
-                    self?.recordingStartTask = nil
                     self?.countdownOverlayController.dismiss()
                 },
-                cancelScreenshotCapture: { [weak self] in
-                    self?.screenshotCaptureTask?.cancel()
-                    self?.screenshotCaptureTask = nil
-                },
+                cancelScreenshotCapture: {},
                 prepareRecordingFile: { [weak self] source in
                     self?.prepareRecordingFile(for: source)
                 },
                 runRecordingStart: { [weak self] source, outputURL in
-                    self?.recordingStartTask?.cancel()
-                    self?.recordingStartTask = Task { [weak self] in
-                        await self?.runRecordingStartFlow(source: source, outputURL: outputURL)
-                    }
+                    await self?.runRecordingStartFlow(source: source, outputURL: outputURL)
                 },
                 stopRecording: { [weak self] source in
-                    Task { [weak self] in
-                        await self?.runRecordingStopFlow(source: source)
-                    }
+                    await self?.runRecordingStopFlow(source: source)
                 },
                 runScreenshotCapture: { [weak self] source in
-                    self?.screenshotCaptureTask?.cancel()
-                    self?.screenshotCaptureTask = Task { [weak self] in
-                        await self?.runScreenshotCapture(source: source)
-                    }
+                    await self?.runScreenshotCapture(source: source)
                 }
             )
         )
@@ -250,6 +199,90 @@ final class AppModel: ObservableObject {
                 self?.statusMessage = message
             }
         )
+        appShell.onboarding.configure(
+            currentPermissions: { [weak self] in
+                guard let self else { return (.requestAvailable, .requestAvailable) }
+                self.refreshOnboardingPermissionStates()
+                return (self.screenRecordingPermissionState, self.accessibilityPermissionState)
+            },
+            requestScreenPermission: { [weak self] in
+                self?.requestOnboardingScreenRecordingPermission() ?? .promptAlreadyShown
+            },
+            requestAccessibilityPermission: { [weak self] in
+                self?.requestOnboardingAccessibilityPermission() ?? .promptAlreadyShown
+            },
+            openScreenRecordingSettings: { [weak self] in
+                self?.openPrivacySettings()
+            },
+            openAccessibilitySettings: { [weak self] in
+                self?.openAccessibilitySettings()
+            },
+            completeOnboarding: { [weak self] in
+                self?.completeOnboarding() ?? false
+            }
+        )
+        appShell.settings.configure(
+            refreshService: { [weak self] in
+                guard let self else { return }
+                if self.refreshBackendState() {
+                    self.appShell.settings.send(.serviceRefreshSucceeded(serviceHealth: self.serviceHealth, paths: self.paths))
+                } else {
+                    self.appShell.settings.send(.serviceRefreshFailed(self.statusMessage))
+                }
+            },
+            persistAutoZoomPreference: { [weak self] value in
+                self?.createZoomsAutomatically = value
+            },
+            openFolder: { [weak self] path in
+                self?.openPath(path)
+            },
+            openScreenRecordingSettings: { [weak self] in
+                self?.openPrivacySettings()
+            },
+            openAccessibilitySettings: { [weak self] in
+                self?.openAccessibilitySettings()
+            },
+            showOnboarding: { [weak self] in
+                self?.showOnboarding()
+            }
+        )
+        videoExport.configure(
+            renderVideo: { sourceURL, targetURL, options, cancellationToken, edits, progressHandler in
+                try await VideoExportRenderer.export(
+                    sourceURL: sourceURL,
+                    targetURL: targetURL,
+                    options: options,
+                    cancellationToken: cancellationToken,
+                    edits: edits,
+                    progressHandler: progressHandler
+                )
+            },
+            temporaryURL: { [weak self] options in
+                self?.temporaryVideoExportURL(options: options)
+                    ?? FileManager.default.temporaryDirectory
+                        .appendingPathComponent("open-recorder-export-\(UUID().uuidString)")
+                        .appendingPathExtension(options.format.fileExtension)
+            },
+            saveDestination: { [weak self] sourceURL, options in
+                self?.videoExportSaveDestination(sourceURL: sourceURL, options: options)
+            },
+            copyFile: { sourceURL, targetURL in
+                if FileManager.default.fileExists(atPath: targetURL.path) {
+                    try FileManager.default.removeItem(at: targetURL)
+                }
+                try FileManager.default.copyItem(at: sourceURL, to: targetURL)
+            },
+            deleteFile: { url in
+                try? FileManager.default.removeItem(at: url)
+            },
+            revealFile: { url in
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            },
+            setStatusMessage: { [weak self] message in
+                self?.statusMessage = message
+            }
+        )
+        appShell.settings.send(.autoZoomPreferenceSynced(createZoomsAutomatically))
         syncAppShellMirror()
         syncCaptureOptionsMirror()
     }
@@ -295,18 +328,17 @@ final class AppModel: ObservableObject {
     }
 
     private func syncAppShellMirror() {
-        let state = appShell.state
-        isSyncingAppShellMirror = true
-        selectedSection = state.selectedSection
-        paths = state.paths
-        projects = state.projects
-        currentVideoURL = state.currentVideoURL
-        currentScreenshotURL = state.currentScreenshotURL
-        lastEditorSession = state.lastEditorSession
-        statusMessage = state.statusMessage
-        serviceHealth = state.serviceHealth
-        windowCommand = state.windowCommand
-        isSyncingAppShellMirror = false
+        syncSettingsDriverFromShell()
+        objectWillChange.send()
+    }
+
+    private func mutateAppShellState(_ update: (inout AppShellState) -> Void) {
+        update(&appShell.state)
+        syncAppShellMirror()
+    }
+
+    private func syncSettingsDriverFromShell() {
+        appShell.settings.send(.appeared(serviceHealth: serviceHealth, paths: paths))
     }
 
     var captureFlow: CaptureFlow {
@@ -667,11 +699,15 @@ final class AppModel: ObservableObject {
         sendAppShell(.editorSessionShown(session))
     }
 
+    var windowCommand: NativeWindowCommand? {
+        appShell.state.windowCommand
+    }
+
     func consumeWindowCommand(_ command: NativeWindowCommand?) -> NativeWindowCommand? {
-        guard let command, handledWindowCommandID != command.id else {
+        guard let command, appShell.state.windowCommand?.id == command.id else {
             return nil
         }
-        handledWindowCommandID = command.id
+        sendAppShell(.windowCommandConsumed(command.id))
         return command
     }
 
@@ -780,7 +816,6 @@ final class AppModel: ObservableObject {
             }
             let facecamStatusMessage = statusMessage.hasPrefix("Recording without facecam") ? statusMessage : nil
             dispatch(.recordingStarted(selectedSource))
-            recordingStartTask = nil
             if let facecamStatusMessage {
                 statusMessage = facecamStatusMessage
             }
@@ -808,7 +843,6 @@ final class AppModel: ObservableObject {
     }
 
     private func restoreRecordingSetup(source: CaptureSource, message: String? = nil) {
-        recordingStartTask = nil
         countdownOverlayController.dismiss()
         dispatch(.recordingRestored(source, message: message ?? statusMessage))
     }
@@ -919,7 +953,6 @@ final class AppModel: ObservableObject {
             }
             currentScreenshotURL = outputURL
             currentVideoURL = nil
-            screenshotCaptureTask = nil
             showEditor(for: EditorSession(
                 kind: .screenshot,
                 url: outputURL,
@@ -932,13 +965,11 @@ final class AppModel: ObservableObject {
                 rememberScreenshotInBackground(outputURL)
             }
         } catch is CancellationError {
-            screenshotCaptureTask = nil
             if case .capturingScreenshot(let activeSource) = captureState.phase,
                activeSource.id == selectedSource.id {
                 restoreScreenshotSetup(source: selectedSource, message: "Screenshot canceled.")
             }
         } catch {
-            screenshotCaptureTask = nil
             restoreScreenshotSetup(source: selectedSource, message: error.localizedDescription)
         }
     }
@@ -1109,158 +1140,23 @@ final class AppModel: ObservableObject {
     }
 
     func exportCurrentRecording(_ recordingURL: URL? = nil, options: VideoExportOptions = .default, edits: TimelineEditSnapshot = .empty) {
-        guard let url = recordingURL ?? currentVideoURL else {
-            statusMessage = "Open a recording first."
-            return
-        }
-
-        cancelVideoExportTask()
-        resetVideoExportResult(removePendingFile: true)
-        pendingVideoExportSourceURL = url
-        pendingVideoExportOptions = options
-
-        let targetURL = temporaryVideoExportURL(options: options)
-        let cancellationToken = VideoExportCancellationToken()
-        pendingVideoExportTempURL = targetURL
-        videoExportCancellationToken = cancellationToken
-        isVideoExporting = true
-        videoExportPhase = .exporting
-        videoExportProgress = 0
-        statusMessage = "Exporting \(options.resolution.title) \(options.format.title) at \(options.frameRate.title)..."
-
-        videoExportTask = Task {
-            await exportRecording(
-                from: url,
-                to: targetURL,
-                options: options,
-                cancellationToken: cancellationToken,
-                edits: edits
-            )
-        }
+        videoExport.export(sourceURL: recordingURL ?? currentVideoURL, options: options, edits: edits)
     }
 
     func cancelVideoExport() {
-        guard videoExportPhase == .exporting || isVideoExporting else { return }
-        cancelVideoExportTask()
-        if let pendingVideoExportTempURL {
-            try? FileManager.default.removeItem(at: pendingVideoExportTempURL)
-        }
-        pendingVideoExportTempURL = nil
-        isVideoExporting = false
-        videoExportProgress = 0
-        videoExportError = "Export canceled."
-        videoExportPhase = .failed
-        statusMessage = "Export canceled."
+        videoExport.cancelExport()
     }
 
     func retryPendingVideoExportSave() {
-        guard let tempURL = pendingVideoExportTempURL,
-              let sourceURL = pendingVideoExportSourceURL,
-              let options = pendingVideoExportOptions else {
-            videoExportError = "No completed export is waiting to be saved."
-            videoExportPhase = .failed
-            return
-        }
-
-        saveRenderedVideo(tempURL: tempURL, sourceURL: sourceURL, options: options)
+        videoExport.retrySave()
     }
 
     func revealExportedVideoInFinder() {
-        guard let exportedVideoURL else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([exportedVideoURL])
+        videoExport.revealExportedFile()
     }
 
     func clearVideoExportDialogState() {
-        if videoExportPhase.isBusy {
-            cancelVideoExport()
-        }
-        cancelVideoExportTask()
-        resetVideoExportResult(removePendingFile: true)
-        videoExportPhase = .idle
-        videoExportProgress = 0
-        isVideoExporting = false
-    }
-
-    private func exportRecording(
-        from sourceURL: URL,
-        to targetURL: URL,
-        options: VideoExportOptions,
-        cancellationToken: VideoExportCancellationToken,
-        edits: TimelineEditSnapshot
-    ) async {
-        do {
-            try await VideoExportRenderer.export(
-                sourceURL: sourceURL,
-                targetURL: targetURL,
-                options: options,
-                cancellationToken: cancellationToken,
-                edits: edits,
-                progressHandler: { [weak self] progress in
-                    self?.videoExportProgress = progress
-                }
-            )
-            guard !Task.isCancelled else { return }
-            videoExportTask = nil
-            videoExportCancellationToken = nil
-            isVideoExporting = false
-            videoExportProgress = 1
-            videoExportPhase = .saving
-            statusMessage = "Choose where to save \(options.resolution.title) \(options.format.title) at \(options.frameRate.title)."
-            saveRenderedVideo(tempURL: targetURL, sourceURL: sourceURL, options: options)
-        } catch {
-            guard !Task.isCancelled else { return }
-            videoExportTask = nil
-            videoExportCancellationToken = nil
-            isVideoExporting = false
-            videoExportError = error.localizedDescription
-            videoExportPhase = .failed
-            statusMessage = error.localizedDescription
-        }
-    }
-
-    private func saveRenderedVideo(tempURL: URL, sourceURL: URL, options: VideoExportOptions) {
-        videoExportPhase = .saving
-        videoExportError = nil
-
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [options.format.contentType]
-        panel.nameFieldStringValue = suggestedVideoExportFileName(for: sourceURL, options: options)
-        panel.canCreateDirectories = true
-        guard panel.runModal() == .OK, let targetURL = panel.url else {
-            videoExportError = "Save dialog canceled. Click Save Again to save without re-exporting."
-            videoExportPhase = .savePending
-            statusMessage = "Export ready to save."
-            return
-        }
-
-        do {
-            if FileManager.default.fileExists(atPath: targetURL.path) {
-                try FileManager.default.removeItem(at: targetURL)
-            }
-            try FileManager.default.copyItem(at: tempURL, to: targetURL)
-            try? FileManager.default.removeItem(at: tempURL)
-            pendingVideoExportTempURL = nil
-            pendingVideoExportSourceURL = nil
-            pendingVideoExportOptions = nil
-            exportedVideoURL = targetURL
-            videoExportPhase = .success
-            statusMessage = "Exported \(targetURL.lastPathComponent)"
-        } catch {
-            videoExportError = error.localizedDescription
-            videoExportPhase = .failed
-            statusMessage = error.localizedDescription
-        }
-    }
-
-    private func resetVideoExportResult(removePendingFile: Bool) {
-        if removePendingFile, let pendingVideoExportTempURL {
-            try? FileManager.default.removeItem(at: pendingVideoExportTempURL)
-        }
-        pendingVideoExportTempURL = nil
-        pendingVideoExportSourceURL = nil
-        pendingVideoExportOptions = nil
-        videoExportError = nil
-        exportedVideoURL = nil
+        videoExport.clear()
     }
 
     private func initialTimelineEdits(videoURL: URL, cursorTelemetryURL: URL?) async -> TimelineEditSnapshot {
@@ -1308,17 +1204,39 @@ final class AppModel: ObservableObject {
         return try? JSONSerialization.jsonObject(with: data)
     }
 
-    private func cancelVideoExportTask() {
-        videoExportTask?.cancel()
-        videoExportTask = nil
-        videoExportCancellationToken?.cancel()
-        videoExportCancellationToken = nil
+    var isVideoExporting: Bool {
+        videoExport.state.isExporting
+    }
+
+    var videoExportPhase: VideoExportPhase {
+        videoExport.state.phase
+    }
+
+    var videoExportProgress: Double {
+        videoExport.state.progress
+    }
+
+    var videoExportError: String? {
+        videoExport.state.errorMessage
+    }
+
+    var exportedVideoURL: URL? {
+        videoExport.state.exportedURL
     }
 
     private func temporaryVideoExportURL(options: VideoExportOptions) -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("open-recorder-export-\(UUID().uuidString)")
             .appendingPathExtension(options.format.fileExtension)
+    }
+
+    private func videoExportSaveDestination(sourceURL: URL, options: VideoExportOptions) -> URL? {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [options.format.contentType]
+        panel.nameFieldStringValue = suggestedVideoExportFileName(for: sourceURL, options: options)
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url
     }
 
     private func suggestedVideoExportFileName(for sourceURL: URL, options: VideoExportOptions) -> String {

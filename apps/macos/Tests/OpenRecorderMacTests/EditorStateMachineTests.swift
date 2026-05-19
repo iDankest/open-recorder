@@ -231,6 +231,181 @@ final class VideoEditorStateMachineTests: XCTestCase {
     }
 }
 
+@MainActor
+final class VideoExportStateMachineTests: XCTestCase {
+    func testExportReducerStartsRenderAndTracksPendingState() {
+        var state = VideoExportState()
+        let sourceURL = URL(fileURLWithPath: "/tmp/source.mov")
+        let tempURL = URL(fileURLWithPath: "/tmp/export-temp.mov")
+        let options = VideoExportOptions.default
+        let edits = TimelineEditSnapshot(clipSplitTimes: [1.5])
+
+        let effects = state.applying(.exportRequested(
+            sourceURL: sourceURL,
+            targetURL: tempURL,
+            options: options,
+            edits: edits
+        ))
+
+        XCTAssertEqual(state.phase, .exporting)
+        XCTAssertEqual(state.progress, 0)
+        XCTAssertEqual(state.pendingTempURL, tempURL)
+        XCTAssertEqual(state.pendingSourceURL, sourceURL)
+        XCTAssertEqual(state.pendingOptions, options)
+        XCTAssertNil(state.exportedURL)
+        XCTAssertNil(state.errorMessage)
+        XCTAssertEqual(effects, [
+            .cancelRender,
+            .setStatusMessage("Exporting 1080p MOV at 30 FPS..."),
+            .render(sourceURL: sourceURL, targetURL: tempURL, options: options, edits: edits)
+        ])
+    }
+
+    func testExportReducerHandlesSavePendingRetryAndSuccess() {
+        var state = VideoExportState()
+        let sourceURL = URL(fileURLWithPath: "/tmp/source.mov")
+        let tempURL = URL(fileURLWithPath: "/tmp/export-temp.mov")
+        let savedURL = URL(fileURLWithPath: "/tmp/saved.mov")
+        let options = VideoExportOptions.default
+
+        _ = state.applying(.exportRequested(
+            sourceURL: sourceURL,
+            targetURL: tempURL,
+            options: options,
+            edits: .empty
+        ))
+
+        XCTAssertEqual(state.applying(.renderSucceeded), [
+            .setStatusMessage("Choose where to save 1080p MOV at 30 FPS."),
+            .presentSavePanel(sourceURL: sourceURL, tempURL: tempURL, options: options)
+        ])
+        XCTAssertEqual(state.phase, .saving)
+        XCTAssertEqual(state.progress, 1)
+
+        XCTAssertEqual(state.applying(.savePanelCanceled), [.setStatusMessage("Export ready to save.")])
+        XCTAssertEqual(state.phase, .savePending)
+        XCTAssertEqual(state.errorMessage, "Save dialog canceled. Click Save Again to save without re-exporting.")
+        XCTAssertEqual(state.pendingTempURL, tempURL)
+
+        XCTAssertEqual(state.applying(.retrySaveRequested), [
+            .presentSavePanel(sourceURL: sourceURL, tempURL: tempURL, options: options)
+        ])
+        XCTAssertEqual(state.phase, .saving)
+        XCTAssertNil(state.errorMessage)
+
+        XCTAssertEqual(state.applying(.saveSucceeded(savedURL)), [.setStatusMessage("Exported saved.mov")])
+        XCTAssertEqual(state.phase, .success)
+        XCTAssertEqual(state.exportedURL, savedURL)
+        XCTAssertNil(state.pendingTempURL)
+        XCTAssertNil(state.pendingSourceURL)
+        XCTAssertNil(state.pendingOptions)
+    }
+
+    func testExportReducerCancelAndClearDeletePendingTempFiles() {
+        var state = VideoExportState()
+        let sourceURL = URL(fileURLWithPath: "/tmp/source.mov")
+        let tempURL = URL(fileURLWithPath: "/tmp/export-temp.mov")
+        let options = VideoExportOptions.default
+
+        _ = state.applying(.exportRequested(
+            sourceURL: sourceURL,
+            targetURL: tempURL,
+            options: options,
+            edits: .empty
+        ))
+
+        XCTAssertEqual(state.applying(.cancelRequested), [
+            .cancelRender,
+            .setStatusMessage("Export canceled."),
+            .deleteFile(tempURL)
+        ])
+        XCTAssertEqual(state.phase, .failed)
+        XCTAssertEqual(state.errorMessage, "Export canceled.")
+        XCTAssertNil(state.pendingTempURL)
+
+        _ = state.applying(.exportRequested(
+            sourceURL: sourceURL,
+            targetURL: tempURL,
+            options: options,
+            edits: .empty
+        ))
+        XCTAssertEqual(state.applying(.clearRequested), [
+            .cancelRender,
+            .deleteFile(tempURL)
+        ])
+        XCTAssertEqual(state.phase, .idle)
+        XCTAssertNil(state.pendingTempURL)
+        XCTAssertNil(state.pendingSourceURL)
+        XCTAssertNil(state.pendingOptions)
+    }
+
+    func testExportReducerMissingSourceFailsWithoutRuntimeWork() {
+        var state = VideoExportState()
+
+        XCTAssertEqual(state.applying(.exportRequested(
+            sourceURL: nil,
+            targetURL: URL(fileURLWithPath: "/tmp/export-temp.mov"),
+            options: .default,
+            edits: .empty
+        )), [.setStatusMessage("Open a recording first.")])
+        XCTAssertEqual(state.phase, .failed)
+        XCTAssertEqual(state.errorMessage, "Open a recording first.")
+    }
+
+    func testExportDriverRunsRenderSaveAndRevealThroughInjectedEffects() async {
+        let driver = VideoExportDriver()
+        let sourceURL = URL(fileURLWithPath: "/tmp/source.mov")
+        let tempURL = URL(fileURLWithPath: "/tmp/export-temp.mov")
+        let savedURL = URL(fileURLWithPath: "/tmp/saved.mov")
+        var renderedSourceURL: URL?
+        var copiedURLs: [(source: URL, target: URL)] = []
+        var deletedURLs: [URL] = []
+        var revealedURL: URL?
+        var statusMessages: [String] = []
+
+        driver.configure(
+            renderVideo: { sourceURL, _, _, _, _, progressHandler in
+                renderedSourceURL = sourceURL
+                progressHandler(0.42)
+            },
+            temporaryURL: { _ in tempURL },
+            saveDestination: { _, _ in savedURL },
+            copyFile: { sourceURL, targetURL in
+                copiedURLs.append((sourceURL, targetURL))
+            },
+            deleteFile: { url in
+                deletedURLs.append(url)
+            },
+            revealFile: { url in
+                revealedURL = url
+            },
+            setStatusMessage: { message in
+                statusMessages.append(message)
+            }
+        )
+
+        driver.export(sourceURL: sourceURL, options: .default, edits: .empty)
+        for _ in 0..<20 {
+            await Task.yield()
+            if driver.state.phase == .success {
+                break
+            }
+        }
+
+        XCTAssertEqual(renderedSourceURL, sourceURL)
+        XCTAssertEqual(copiedURLs.map(\.source), [tempURL])
+        XCTAssertEqual(copiedURLs.map(\.target), [savedURL])
+        XCTAssertEqual(deletedURLs, [tempURL])
+        XCTAssertEqual(driver.state.phase, .success)
+        XCTAssertEqual(driver.state.exportedURL, savedURL)
+        XCTAssertEqual(statusMessages.last, "Exported saved.mov")
+
+        driver.revealExportedFile()
+
+        XCTAssertEqual(revealedURL, savedURL)
+    }
+}
+
 final class ScreenshotEditorStateMachineTests: XCTestCase {
     func testSessionAppliesInitialScreenshotStateAndMarksAutosaved() {
         let screenshotURL = URL(fileURLWithPath: "/tmp/screenshot.png")

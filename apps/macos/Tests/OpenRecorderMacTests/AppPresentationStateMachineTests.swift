@@ -46,6 +46,19 @@ final class AppShellStateMachineTests: XCTestCase {
         XCTAssertEqual(effects, [.setStatusMessage("Rust service ready")])
     }
 
+    func testShellDriverOwnsLongLivedChildDrivers() {
+        let shell = AppShellDriver()
+
+        XCTAssertTrue(shell.workspace === shell.workspace)
+        XCTAssertTrue(shell.capture === shell.capture)
+        XCTAssertTrue(shell.captureOptions === shell.captureOptions)
+        XCTAssertTrue(shell.inlineSourceSelector === shell.inlineSourceSelector)
+        XCTAssertTrue(shell.floatingSourceSelector === shell.floatingSourceSelector)
+        XCTAssertTrue(shell.onboarding === shell.onboarding)
+        XCTAssertTrue(shell.settings === shell.settings)
+        XCTAssertTrue(shell.videoExport === shell.videoExport)
+    }
+
     func testAppModelFacadeMirrorsShellRouting() {
         let model = AppModel()
         let session = EditorSession(kind: .screenshot, url: URL(fileURLWithPath: "/tmp/screen.png"), title: "Screen")
@@ -94,6 +107,84 @@ final class CaptureDriverStateMachineTests: XCTestCase {
         XCTAssertEqual(effects, [[.dismissScreenSelection, .showHUD]])
         XCTAssertTrue(didDismissScreenSelection)
         XCTAssertTrue(didShowHUD)
+    }
+
+    func testDriverOwnsRecordingStartTaskCancellation() async {
+        let driver = CaptureDriver()
+        let source = makeCaptureSource(id: "display-1", kind: .display)
+        let outputURL = URL(fileURLWithPath: "/tmp/recording.mp4")
+        var started = 0
+        var canceled = false
+        var cancelEffectRan = false
+
+        driver.configure(
+            effectHandlers: CaptureEffectHandlers(
+                cancelRecordingStart: {
+                    cancelEffectRan = true
+                },
+                runRecordingStart: { _, _ in
+                    started += 1
+                    do {
+                        try await Task.sleep(nanoseconds: 5_000_000_000)
+                    } catch {
+                        canceled = true
+                    }
+                }
+            )
+        )
+
+        _ = driver.send(.recordingFilePrepared(source, outputURL))
+        await Task.yield()
+        XCTAssertEqual(started, 1)
+
+        _ = driver.send(.recordingStopRequested)
+        for _ in 0..<20 where !canceled {
+            await Task.yield()
+        }
+
+        XCTAssertTrue(cancelEffectRan)
+        XCTAssertTrue(canceled)
+    }
+
+    func testDriverOwnsScreenshotCaptureTaskCancellation() async {
+        let driver = CaptureDriver()
+        let source = makeCaptureSource(id: "window-1", kind: .window)
+        var started = 0
+        var canceled = false
+        var cancelEffectRan = false
+
+        driver.configure(
+            effectHandlers: CaptureEffectHandlers(
+                cancelScreenshotCapture: {
+                    cancelEffectRan = true
+                },
+                runScreenshotCapture: { _ in
+                    started += 1
+                    do {
+                        try await Task.sleep(nanoseconds: 5_000_000_000)
+                    } catch {
+                        canceled = true
+                    }
+                }
+            )
+        )
+
+        driver.setStateForTesting(CaptureState(
+            phase: .ready(.screenshot, source),
+            selectedSource: source,
+            preferredSourceKind: source.kind
+        ))
+        _ = driver.send(.screenshotRequested)
+        await Task.yield()
+        XCTAssertEqual(started, 1)
+
+        _ = driver.send(.cancelCapture)
+        for _ in 0..<20 where !canceled {
+            await Task.yield()
+        }
+
+        XCTAssertTrue(cancelEffectRan)
+        XCTAssertTrue(canceled)
     }
 }
 
@@ -221,5 +312,19 @@ private func makeProjectSummary(path: String) -> ProjectSummary {
         updatedAt: "2026-05-19T00:00:00Z",
         lastOpenedAt: "2026-05-19T00:00:00Z",
         missing: false
+    )
+}
+
+private func makeCaptureSource(id: String, kind: CaptureSourceKind) -> CaptureSource {
+    CaptureSource(
+        id: id,
+        kind: kind,
+        name: kind == .display ? "Display" : "Window",
+        subtitle: "",
+        displayIndex: kind == .display ? 1 : nil,
+        displayID: kind == .display ? 1 : nil,
+        windowID: kind == .window ? 42 : nil,
+        area: nil,
+        thumbnailData: nil
     )
 }

@@ -142,6 +142,17 @@ extension AppShellState {
 @MainActor
 final class AppShellDriver {
     var state = AppShellState()
+    let workspace = EditorWorkspaceDriver()
+    let capture = CaptureDriver()
+    let captureOptions = CaptureOptionsDriver()
+    let inlineSourceSelector = SourceSelectorDriver(sourceTab: .screens)
+    let floatingSourceSelector = SourceSelectorDriver(sourceTab: .windows, visibleTabs: [.windows, .area])
+    let onboarding = OnboardingDriver(
+        screenRecordingPermissionState: .requestAvailable,
+        accessibilityPermissionState: .requestAvailable
+    )
+    let settings = SettingsDriver(createZoomsAutomatically: false)
+    let videoExport = VideoExportDriver()
 
     @ObservationIgnored private var refreshBackend: () -> Void = {}
     @ObservationIgnored private var emitWindowCommand: (NativeWindowCommand) -> Void = { _ in }

@@ -29,7 +29,9 @@ struct EditorStudioView: View {
                 initialTimelineEdits: editorSession?.timelineEditSnapshot,
                 initialVideoState: initialVideoState,
                 editorSessionID: editorSession?.id,
+                editor: workspace.video,
                 timelineEdits: workspace.timeline,
+                videoExport: model.appShell.videoExport,
                 exportRequest: workspace.state.videoExportRequest
             )
         }
@@ -80,9 +82,10 @@ struct VideoEditorStudioView: View {
     var initialVideoState: ProjectVideoEditorState?
     var editorSessionID: UUID?
     @State private var playback = VideoPlaybackController()
+    var editor: VideoEditorDriver
     var timelineEdits: TimelineEditDriver
+    var videoExport: VideoExportDriver
     var exportRequest: EditorExportRequest?
-    @State private var driver = VideoEditorDriver()
     private let sidebarWidth: CGFloat = 320
     private let timelineHeight = TimelineMetrics.compactPanelHeight
 
@@ -101,7 +104,7 @@ struct VideoEditorStudioView: View {
         }
         .padding(16)
         .background(Color.studioMutedBackground)
-        .sheet(item: driver.activeSheetBinding(exportIsBusy: model.videoExportPhase.isBusy)) { sheet in
+        .sheet(item: editor.activeSheetBinding(exportIsBusy: videoExport.state.phase.isBusy)) { sheet in
             switch sheet {
             case .export:
                 exportDialog
@@ -111,7 +114,7 @@ struct VideoEditorStudioView: View {
         }
         .onChange(of: exportRequest?.id) { _, requestID in
             guard requestID != nil, isVideoExportRequestTarget else { return }
-            driver.send(.exportRequested)
+            editor.send(.exportRequested)
         }
         .onChange(of: videoURL) { _, _ in
             syncEditorSession()
@@ -120,10 +123,10 @@ struct VideoEditorStudioView: View {
             syncEditorSession()
         }
         .onChange(of: autosaveSnapshot) { _, snapshot in
-            driver.send(.autosaveSnapshotChanged(snapshot))
+            editor.send(.autosaveSnapshotChanged(snapshot))
         }
         .onAppear {
-            driver.configure(
+            editor.configure(
                 applyTimelineSnapshot: { snapshot in
                     timelineEdits.applySnapshot(snapshot)
                 },
@@ -137,16 +140,16 @@ struct VideoEditorStudioView: View {
                     playback.pause()
                 },
                 exportVideo: { recordingURL, options, edits in
-                    model.exportCurrentRecording(recordingURL, options: options, edits: edits)
+                    videoExport.export(sourceURL: recordingURL ?? model.currentVideoURL, options: options, edits: edits)
                 },
                 clearVideoExportDialogState: {
-                    model.clearVideoExportDialogState()
+                    videoExport.clear()
                 }
             )
             syncEditorSession()
         }
         .onDisappear {
-            driver.send(.disappeared(autosaveSnapshot))
+            editor.send(.disappeared(autosaveSnapshot))
         }
         .background {
             StudioKeyDownMonitor { event in
@@ -169,23 +172,23 @@ struct VideoEditorStudioView: View {
                 recordingSession: recordingSession,
                 playback: playback,
                 timelineEdits: timelineEdits,
-                background: driver.state.video.background,
-                padding: driver.state.video.padding,
-                borderRadius: driver.state.video.borderRadius,
-                shadow: driver.state.video.shadow,
-                backgroundBlur: driver.state.video.backgroundBlur,
-                inset: driver.state.video.inset,
-                insetColor: driver.state.video.insetColor,
-                insetOpacity: driver.state.video.insetOpacity,
-                insetBalance: driver.state.video.insetBalance,
+                background: editor.state.video.background,
+                padding: editor.state.video.padding,
+                borderRadius: editor.state.video.borderRadius,
+                shadow: editor.state.video.shadow,
+                backgroundBlur: editor.state.video.backgroundBlur,
+                inset: editor.state.video.inset,
+                insetColor: editor.state.video.insetColor,
+                insetOpacity: editor.state.video.insetOpacity,
+                insetBalance: editor.state.video.insetBalance,
                 cursorTelemetryURL: cursorTelemetryURL,
-                cursorSettings: driver.state.cursorOverlaySettings,
-                cropSelection: driver.state.video.cropSelection,
-                facecamSettings: driver.state.currentFacecamSettings,
-                previewAspectPreset: driver.previewAspectPresetBinding,
+                cursorSettings: editor.state.cursorOverlaySettings,
+                cropSelection: editor.state.video.cropSelection,
+                facecamSettings: editor.state.currentFacecamSettings,
+                previewAspectPreset: editor.previewAspectPresetBinding,
                 onCropVideo: {
                     guard let videoURL else { return }
-                    driver.send(.cropRequested(videoURL))
+                    editor.send(.cropRequested(videoURL))
                 },
                 onRequestClearSelection: {
                     timelineEdits.clearSelection()
@@ -204,25 +207,25 @@ struct VideoEditorStudioView: View {
             TimelineSelectionSidebar(edits: timelineEdits, playback: playback)
         } else {
             SettingsInspector(
-                borderRadius: driver.binding(\.borderRadius),
-                padding: driver.binding(\.padding),
-                shadow: driver.binding(\.shadow),
-                backgroundBlur: driver.binding(\.backgroundBlur),
-                background: driver.binding(\.background),
-                inset: driver.binding(\.inset),
-                insetColor: driver.binding(\.insetColor),
-                insetOpacity: driver.binding(\.insetOpacity),
-                insetBalance: driver.binding(\.insetBalance),
-                showCursor: driver.binding(\.cursorOverlay.isVisible),
-                loopCursor: driver.binding(\.cursorOverlay.loops),
-                cursorSize: driver.binding(\.cursorOverlay.size),
-                cursorSmoothing: driver.binding(\.cursorOverlay.smoothing),
-                cursorStyle: driver.binding(\.cursorOverlay.style),
-                cursorVariant: driver.binding(\.cursorOverlay.variant),
-                facecamEnabled: driver.facecamBinding(\.enabled, default: false),
-                facecamSize: driver.facecamBinding(\.size, default: 22),
-                facecamBorderWidth: driver.facecamBinding(\.borderWidth, default: 4),
-                facecamAnchor: driver.facecamBinding(\.anchor, default: FacecamAnchor.bottomRight.rawValue),
+                borderRadius: editor.binding(\.borderRadius),
+                padding: editor.binding(\.padding),
+                shadow: editor.binding(\.shadow),
+                backgroundBlur: editor.binding(\.backgroundBlur),
+                background: editor.binding(\.background),
+                inset: editor.binding(\.inset),
+                insetColor: editor.binding(\.insetColor),
+                insetOpacity: editor.binding(\.insetOpacity),
+                insetBalance: editor.binding(\.insetBalance),
+                showCursor: editor.binding(\.cursorOverlay.isVisible),
+                loopCursor: editor.binding(\.cursorOverlay.loops),
+                cursorSize: editor.binding(\.cursorOverlay.size),
+                cursorSmoothing: editor.binding(\.cursorOverlay.smoothing),
+                cursorStyle: editor.binding(\.cursorOverlay.style),
+                cursorVariant: editor.binding(\.cursorOverlay.variant),
+                facecamEnabled: editor.facecamBinding(\.enabled, default: false),
+                facecamSize: editor.facecamBinding(\.size, default: 22),
+                facecamBorderWidth: editor.facecamBinding(\.borderWidth, default: 4),
+                facecamAnchor: editor.facecamBinding(\.anchor, default: FacecamAnchor.bottomRight.rawValue),
                 recordingSession: recordingSession
             )
         }
@@ -266,16 +269,16 @@ struct VideoEditorStudioView: View {
 
     private var exportDialog: some View {
         VideoExportDialog(
-            phase: model.videoExportPhase,
-            progress: model.videoExportProgress,
-            errorMessage: model.videoExportError,
-            exportedFileName: model.exportedVideoURL?.lastPathComponent,
-            isExporting: model.isVideoExporting,
-            resolution: driver.exportResolutionBinding,
-            format: driver.state.exportDraft.format,
-            frameRate: driver.exportFrameRateBinding,
+            phase: videoExport.state.phase,
+            progress: videoExport.state.progress,
+            errorMessage: videoExport.state.errorMessage,
+            exportedFileName: videoExport.state.exportedFileName,
+            isExporting: videoExport.state.isExporting,
+            resolution: editor.exportResolutionBinding,
+            format: editor.state.exportDraft.format,
+            frameRate: editor.exportFrameRateBinding,
             onExport: {
-                driver.send(.exportConfirmed(
+                editor.send(.exportConfirmed(
                     recordingURL: exportRequest?.url ?? videoURL,
                     edits: timelineEdits.snapshot,
                     snapshot: autosaveSnapshot,
@@ -283,39 +286,39 @@ struct VideoEditorStudioView: View {
                 ))
             },
             onRetrySave: {
-                model.retryPendingVideoExportSave()
+                videoExport.retrySave()
             },
             onShowInFinder: {
-                model.revealExportedVideoInFinder()
+                videoExport.revealExportedFile()
             },
             onCancelExport: {
-                model.cancelVideoExport()
+                videoExport.cancelExport()
             },
             onClose: {
-                driver.send(.sheetDismissed(exportIsBusy: model.videoExportPhase.isBusy))
+                editor.send(.sheetDismissed(exportIsBusy: videoExport.state.phase.isBusy))
             }
         )
         .frame(width: 420)
-        .interactiveDismissDisabled(model.videoExportPhase.isBusy)
+        .interactiveDismissDisabled(videoExport.state.phase.isBusy)
     }
 
     private func cropDialog(videoURL: URL) -> some View {
         VideoCropDialog(
             videoURL: videoURL,
-            initialSelection: driver.state.video.cropSelection,
+            initialSelection: editor.state.video.cropSelection,
             initialTime: playback.currentTime,
             sourceSize: playback.naturalVideoSize,
             onConfirm: { selection in
-                driver.send(.cropConfirmed(selection))
+                editor.send(.cropConfirmed(selection))
             },
             onCancel: {
-                driver.send(.cropCanceled)
+                editor.send(.cropCanceled)
             }
         )
     }
 
     private func syncEditorSession() {
-        driver.send(.sessionChanged(VideoEditorSessionContext(
+        editor.send(.sessionChanged(VideoEditorSessionContext(
             videoURL: videoURL,
             projectPath: projectPath,
             editorTitle: editorTitle,
@@ -328,7 +331,7 @@ struct VideoEditorStudioView: View {
     }
 
     private var autosaveSnapshot: ProjectAutosaveSnapshot? {
-        driver.autosaveSnapshot(
+        editor.autosaveSnapshot(
             projectPath: projectPath,
             videoURL: videoURL,
             editorTitle: editorTitle,

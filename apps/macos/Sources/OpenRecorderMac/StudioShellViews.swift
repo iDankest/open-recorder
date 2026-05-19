@@ -9,7 +9,7 @@ struct StudioWindowView: View {
     var editorSession: EditorSession?
 
     var body: some View {
-        StudioShell(editorSession: editorSession)
+        StudioShell(editorSession: editorSession, workspace: model.appShell.workspace)
             .onAppear {
                 if model.selectedSection == .capture {
                     model.selectedSection = .editor
@@ -22,7 +22,7 @@ struct StudioWindowView: View {
 struct StudioShell: View {
     @EnvironmentObject private var model: AppModel
     var editorSession: EditorSession?
-    @State private var workspace = EditorWorkspaceDriver()
+    var workspace: EditorWorkspaceDriver
 
     var body: some View {
         VStack(spacing: 0) {
@@ -96,7 +96,7 @@ struct StudioShell: View {
         case .editor:
             EditorStudioView(editorSession: editorSession, workspace: workspace)
         case .settings:
-            SettingsStudioView()
+            SettingsStudioView(driver: model.appShell.settings)
         }
     }
 

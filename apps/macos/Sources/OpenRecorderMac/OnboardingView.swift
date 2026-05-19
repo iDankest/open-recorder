@@ -8,11 +8,7 @@ enum OnboardingWindowMetrics {
 }
 
 struct OnboardingView: View {
-    @EnvironmentObject private var model: AppModel
-    @State private var driver = OnboardingDriver(
-        screenRecordingPermissionState: .requestAvailable,
-        accessibilityPermissionState: .requestAvailable
-    )
+    var driver: OnboardingDriver
     private let permissionRefreshTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -84,27 +80,6 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.studioBackground)
         .onAppear {
-            driver.configure(
-                currentPermissions: {
-                    model.refreshOnboardingPermissionStates()
-                    return (model.screenRecordingPermissionState, model.accessibilityPermissionState)
-                },
-                requestScreenPermission: {
-                    model.requestOnboardingScreenRecordingPermission()
-                },
-                requestAccessibilityPermission: {
-                    model.requestOnboardingAccessibilityPermission()
-                },
-                openScreenRecordingSettings: {
-                    model.openPrivacySettings()
-                },
-                openAccessibilitySettings: {
-                    model.openAccessibilitySettings()
-                },
-                completeOnboarding: {
-                    model.completeOnboarding()
-                }
-            )
             driver.send(.appeared)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
