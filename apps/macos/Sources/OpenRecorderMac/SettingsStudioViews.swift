@@ -12,6 +12,7 @@ struct SettingsStudioView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Settings")
                     .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Theme.fg)
                 SettingsSection(title: "Service") {
                     SettingsRow(title: "Status", value: driver.state.serviceHealth.map { "\($0.service) \($0.version)" } ?? "Unavailable")
                     SettingsRow(title: "Platform", value: driver.state.serviceHealth?.platform ?? "macOS")
@@ -22,6 +23,7 @@ struct SettingsStudioView: View {
                             .frame(height: 34)
                             .padding(.horizontal, 12)
                             .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
+                            .foregroundStyle(Theme.fg)
                     }
                 }
 
@@ -82,6 +84,7 @@ struct SettingsStudioView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.appBgMuted)
+        .foregroundStyle(Theme.fg)
     }
 }
 
@@ -93,7 +96,7 @@ struct SettingsSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fgMuted)
             content
         }
         .padding(18)
@@ -112,11 +115,12 @@ struct SettingsRow: View {
     var body: some View {
         HStack {
             Text(title)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fgMuted)
             Spacer()
             Text(value)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .foregroundStyle(Theme.fg)
         }
         .font(.system(size: 13))
     }
@@ -130,11 +134,12 @@ struct FolderRow: View {
     var body: some View {
         HStack {
             Text(title)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fgMuted)
             Spacer()
             Text(path ?? "Unknown")
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .foregroundStyle(Theme.fg)
             if let path {
                 StudioButton(hitTarget: .rounded(7)) {
                     onOpen(path)
@@ -142,6 +147,7 @@ struct FolderRow: View {
                     Image(systemName: "folder")
                         .frame(width: 28, height: 28)
                         .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
+                        .foregroundStyle(Theme.fgMuted)
                 }
             }
         }
@@ -156,11 +162,12 @@ struct SettingsToggleRow: View {
     var body: some View {
         HStack {
             Text(title)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fgMuted)
             Spacer()
             Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
+                .tint(Theme.accent)
         }
         .font(.system(size: 13))
     }

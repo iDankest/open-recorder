@@ -201,6 +201,7 @@ struct OpenRecorderApp: App {
             SettingsView()
                 .environmentObject(model)
                 .frame(width: 560)
+                .preferredColorScheme(.dark)
         }
     }
 
