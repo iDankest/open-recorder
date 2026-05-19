@@ -35,16 +35,16 @@ struct VideoExportDialog: View {
             }
         }
         .padding(20)
-        .background(Color.studioPanel)
+        .background(Theme.surface)
     }
 
     private var header: some View {
         HStack(spacing: 12) {
             Image(systemName: headerSymbolName)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Color.brand)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 38, height: 38)
-                .background(Color.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(headerTitle)
@@ -88,13 +88,13 @@ struct VideoExportDialog: View {
 
                 ProgressView(value: displayedProgress, total: 1)
                     .progressViewStyle(.linear)
-                    .tint(Color.brand)
+                    .tint(Theme.accent)
             }
             .padding(12)
-            .background(Color.studioCard, in: RoundedRectangle(cornerRadius: 10))
+            .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 10))
             .overlay {
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.studioBorder)
+                    .stroke(Theme.border)
             }
 
             if phase == .exporting {
@@ -192,10 +192,10 @@ struct VideoExportDialog: View {
                 value: format.title
             )
         }
-        .background(Color.studioCard, in: RoundedRectangle(cornerRadius: 10))
+        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.studioBorder)
+                .stroke(Theme.border)
         }
     }
 
@@ -358,10 +358,10 @@ private struct ExportStaticSettingRow: View {
                 .frame(minWidth: 58)
                 .frame(height: 28)
                 .padding(.horizontal, 10)
-                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+                .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
                 .overlay {
                     RoundedRectangle(cornerRadius: 7)
-                        .stroke(Color.white.opacity(0.08))
+                        .stroke(Theme.border)
                 }
         }
         .padding(.horizontal, 12)
@@ -372,7 +372,7 @@ private struct ExportStaticSettingRow: View {
 private struct ExportDivider: View {
     var body: some View {
         Rectangle()
-            .fill(Color.studioBorder)
+            .fill(Theme.border)
             .frame(height: 1)
             .padding(.leading, 12)
     }
@@ -385,8 +385,8 @@ private enum ExportDialogButtonKind {
 
     var background: Color {
         switch self {
-        case .primary: Color.brand
-        case .secondary: Color.white.opacity(0.055)
+        case .primary: Theme.accent
+        case .secondary: Theme.overlay
         case .destructive: Color.red.opacity(0.12)
         }
     }
@@ -401,8 +401,8 @@ private enum ExportDialogButtonKind {
 
     var border: Color {
         switch self {
-        case .primary: Color.brand.opacity(0.45)
-        case .secondary: Color.studioBorder
+        case .primary: Theme.accent.opacity(0.45)
+        case .secondary: Theme.border
         case .destructive: Color.red.opacity(0.24)
         }
     }

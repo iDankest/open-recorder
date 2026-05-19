@@ -21,10 +21,10 @@ struct MicrophoneSelectorWindowView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Color.white.opacity(0.78))
-                    .background(Color.white.opacity(0.06), in: Circle())
+                    .background(Theme.overlay, in: Circle())
                     .overlay {
                         Circle()
-                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                            .stroke(Theme.border, lineWidth: 1)
                     }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -87,7 +87,7 @@ struct MicrophoneSelectorWindowView: View {
             .frame(maxHeight: 220)
 
             Rectangle()
-                .fill(Color.studioBorder)
+                .fill(Theme.border)
                 .frame(height: 1)
 
             HStack {
@@ -100,20 +100,20 @@ struct MicrophoneSelectorWindowView: View {
                         .font(.system(size: 13, weight: .medium))
                         .frame(height: 34)
                         .padding(.horizontal, 14)
-                        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+                        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                 }
                 .foregroundStyle(.secondary)
             }
             .padding(14)
         }
-        .background(Color.studioPanel.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay {
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.studioBorder)
+                .stroke(Theme.border)
         }
         .padding(16)
-        .background(Color.studioBackground.ignoresSafeArea())
+        .background(Theme.appBg.ignoresSafeArea())
     }
 
     private func selectMicrophone(_ deviceID: String?) {
@@ -130,7 +130,7 @@ struct MicrophoneSelectorWindowView: View {
         HStack(spacing: 10) {
             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(isSelected ? Color.brand : Color.white.opacity(0.34))
+                .foregroundStyle(isSelected ? Theme.accent : Theme.fgSubtle)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -146,10 +146,10 @@ struct MicrophoneSelectorWindowView: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 48)
-        .background(isSelected ? Color.brand.opacity(0.14) : Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+        .background(isSelected ? Theme.accent.opacity(0.14) : Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(isSelected ? Color.brand.opacity(0.36) : Color.white.opacity(0.07), lineWidth: 1)
+                .stroke(isSelected ? Theme.accent.opacity(0.36) : Theme.overlay, lineWidth: 1)
         }
     }
 }
@@ -168,10 +168,10 @@ struct CameraSelectorWindowView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Color.white.opacity(0.78))
-                    .background(Color.white.opacity(0.06), in: Circle())
+                    .background(Theme.overlay, in: Circle())
                     .overlay {
                         Circle()
-                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                            .stroke(Theme.border, lineWidth: 1)
                     }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -234,7 +234,7 @@ struct CameraSelectorWindowView: View {
             .frame(maxHeight: 220)
 
             Rectangle()
-                .fill(Color.studioBorder)
+                .fill(Theme.border)
                 .frame(height: 1)
 
             HStack {
@@ -247,20 +247,20 @@ struct CameraSelectorWindowView: View {
                         .font(.system(size: 13, weight: .medium))
                         .frame(height: 34)
                         .padding(.horizontal, 14)
-                        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+                        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                 }
                 .foregroundStyle(.secondary)
             }
             .padding(14)
         }
-        .background(Color.studioPanel.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay {
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.studioBorder)
+                .stroke(Theme.border)
         }
         .padding(16)
-        .background(Color.studioBackground.ignoresSafeArea())
+        .background(Theme.appBg.ignoresSafeArea())
     }
 
     private func selectCamera(_ deviceID: String?) {
@@ -277,7 +277,7 @@ struct CameraSelectorWindowView: View {
         HStack(spacing: 10) {
             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(isSelected ? Color.brand : Color.white.opacity(0.34))
+                .foregroundStyle(isSelected ? Theme.accent : Theme.fgSubtle)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -293,10 +293,10 @@ struct CameraSelectorWindowView: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 48)
-        .background(isSelected ? Color.brand.opacity(0.14) : Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+        .background(isSelected ? Theme.accent.opacity(0.14) : Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(isSelected ? Color.brand.opacity(0.36) : Color.white.opacity(0.07), lineWidth: 1)
+                .stroke(isSelected ? Theme.accent.opacity(0.36) : Theme.overlay, lineWidth: 1)
         }
     }
 }

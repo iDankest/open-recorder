@@ -29,46 +29,52 @@ struct CaptureHUD: View {
     }
 
     private var fullRecordingControls: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             sharedLeadingControls
 
-            sourcePicker()
-                .layoutPriority(2)
-
-            permissionControls
+            HStack(spacing: 4) {
+                sourcePicker()
+                    .layoutPriority(2)
+                permissionControls
+            }
 
             HUDDivider()
 
-            recordingCaptureControlGroup
+            HStack(spacing: 6) {
+                recordingCaptureControlGroup
 
-            HUDPrimaryButton(
-                title: model.capture.isRecording ? "Stop" : startStopTitle,
-                symbolName: model.capture.isRecording ? "stop.fill" : "record.circle",
-                isDestructive: model.capture.isRecording,
-                shortcutText: "⌘R"
-            ) {
-                toggleRecording()
+                HUDPrimaryButton(
+                    title: model.capture.isRecording ? "Stop" : startStopTitle,
+                    symbolName: model.capture.isRecording ? "stop.fill" : "record.circle",
+                    isDestructive: model.capture.isRecording,
+                    shortcutText: "⌘R"
+                ) {
+                    toggleRecording()
+                }
             }
         }
     }
 
     private var compactRecordingControls: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             compactLeadingControls
 
-            sourcePicker(minWidth: 128, maxWidth: 172)
+            HStack(spacing: 4) {
+                sourcePicker(minWidth: 128, maxWidth: 172)
+                compactPermissionControls
+            }
 
-            compactPermissionControls
+            HStack(spacing: 6) {
+                recordingCaptureControlGroup
 
-            recordingCaptureControlGroup
-
-            HUDPrimaryButton(
-                title: model.capture.isRecording ? "Stop" : startStopTitle,
-                symbolName: model.capture.isRecording ? "stop.fill" : "record.circle",
-                isDestructive: model.capture.isRecording,
-                shortcutText: "⌘R"
-            ) {
-                toggleRecording()
+                HUDPrimaryButton(
+                    title: model.capture.isRecording ? "Stop" : startStopTitle,
+                    symbolName: model.capture.isRecording ? "stop.fill" : "record.circle",
+                    isDestructive: model.capture.isRecording,
+                    shortcutText: "⌘R"
+                ) {
+                    toggleRecording()
+                }
             }
         }
     }
@@ -99,18 +105,22 @@ struct CaptureHUD: View {
     }
 
     private var fullScreenshotControls: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             sharedLeadingControls
+
             FlowLabel(
                 tone: model.statusMessage.localizedCaseInsensitiveContains("permission") ? .red : .blue,
                 label: "Screenshot",
                 value: model.selectedSource == nil ? "Source" : "Ready"
             )
 
-            sourcePicker()
-                .layoutPriority(2)
+            HStack(spacing: 4) {
+                sourcePicker()
+                    .layoutPriority(2)
+                permissionControls
+            }
 
-            permissionControls
+            HUDDivider()
 
             HUDPrimaryButton(
                 title: "Capture",
@@ -123,7 +133,7 @@ struct CaptureHUD: View {
     }
 
     private var compactScreenshotControls: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             compactLeadingControls
 
             CompactFlowLabel(
@@ -131,9 +141,10 @@ struct CaptureHUD: View {
                 value: model.selectedSource == nil ? "Source" : "Ready"
             )
 
-            sourcePicker(minWidth: 128, maxWidth: 172)
-
-            compactPermissionControls
+            HStack(spacing: 4) {
+                sourcePicker(minWidth: 128, maxWidth: 172)
+                compactPermissionControls
+            }
 
             HUDPrimaryIconButton(
                 title: "Capture",
@@ -169,11 +180,11 @@ struct CaptureHUD: View {
             Image(systemName: "chevron.left")
                 .font(.system(size: 13, weight: .bold))
                 .frame(width: 38, height: 38)
-                .foregroundStyle(Color.white.opacity(model.capture.isRecording ? 0.25 : 0.70))
-                .background(Color.white.opacity(0.06), in: Circle())
+                .foregroundStyle(model.capture.isRecording ? Theme.fgDisabled : Color.white.opacity(0.70))
+                .background(Theme.overlay, in: Circle())
                 .overlay {
                     Circle()
-                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                        .stroke(Theme.border, lineWidth: 1)
                 }
         }
         .disabled(model.capture.isRecording)
@@ -282,10 +293,10 @@ struct CaptureHUD: View {
                 .font(.system(size: 14, weight: .medium))
                 .frame(width: 38, height: 38)
                 .foregroundStyle(Color.white.opacity(0.70))
-                .background(Color.white.opacity(0.06), in: Circle())
+                .background(Theme.overlay, in: Circle())
                 .overlay {
                     Circle()
-                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                        .stroke(Theme.border, lineWidth: 1)
                 }
         }
     }

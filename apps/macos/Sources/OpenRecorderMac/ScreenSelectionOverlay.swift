@@ -201,7 +201,7 @@ private struct ScreenSelectionOverlayView: View {
                         .frame(height: 42)
                         .background(Color.white, in: Capsule())
                         .foregroundStyle(Color(red: 0.08, green: 0.28, blue: 0.74))
-                        .shadow(color: Color.black.opacity(0.18), radius: 18, y: 10)
+                        .shadow(color: Theme.scrim, radius: 18, y: 10)
                 }
                 .buttonStyle(.plain)
                 .capsuleHitTarget()

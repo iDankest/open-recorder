@@ -21,7 +21,7 @@ struct SettingsStudioView: View {
                         Label("Check Service", systemImage: "bolt.horizontal")
                             .frame(height: 34)
                             .padding(.horizontal, 12)
-                            .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+                            .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
 
@@ -50,7 +50,7 @@ struct SettingsStudioView: View {
                                 Label("Screen Recording", systemImage: "lock.shield")
                                     .frame(height: 34)
                                     .padding(.horizontal, 12)
-                                    .background(Color.brand, in: RoundedRectangle(cornerRadius: 8))
+                                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8))
                                     .foregroundStyle(.white)
                             }
 
@@ -60,7 +60,7 @@ struct SettingsStudioView: View {
                                 Label("Accessibility", systemImage: "accessibility")
                                     .frame(height: 34)
                                     .padding(.horizontal, 12)
-                                    .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+                                    .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                                     .foregroundStyle(Color.white.opacity(0.86))
                             }
                         }
@@ -71,7 +71,7 @@ struct SettingsStudioView: View {
                             Label("Review Permissions", systemImage: "checklist")
                                 .frame(height: 34)
                                 .padding(.horizontal, 12)
-                                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+                                .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                                 .foregroundStyle(Color.white.opacity(0.86))
                         }
                     }
@@ -81,7 +81,7 @@ struct SettingsStudioView: View {
             .padding(32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.studioMutedBackground)
+        .background(Theme.appBgMuted)
     }
 }
 
@@ -97,10 +97,10 @@ struct SettingsSection<Content: View>: View {
             content
         }
         .padding(18)
-        .background(Color.studioPanel.opacity(0.78), in: RoundedRectangle(cornerRadius: 10))
+        .background(Theme.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.studioBorder)
+                .stroke(Theme.border)
         }
     }
 }
@@ -141,7 +141,7 @@ struct FolderRow: View {
                 } label: {
                     Image(systemName: "folder")
                         .frame(width: 28, height: 28)
-                        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+                        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
                 }
             }
         }

@@ -165,7 +165,7 @@ struct VideoCropDialog: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                .stroke(Theme.borderStrong, lineWidth: 1)
         }
         .overlay(alignment: .topLeading) {
             StudioKeyDownMonitor { event in
@@ -202,7 +202,7 @@ struct VideoCropDialog: View {
             CropNumberField(value: widthBinding)
             Text("x")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.62))
+                .foregroundStyle(Theme.fgMuted)
             CropNumberField(value: heightBinding)
 
             Menu {
@@ -222,7 +222,7 @@ struct VideoCropDialog: View {
                 .foregroundStyle(.white)
                 .frame(height: 36)
                 .padding(.horizontal, 10)
-                .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 7))
+                .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
@@ -242,7 +242,7 @@ struct VideoCropDialog: View {
                     .font(.system(size: 12, weight: .semibold))
                     .frame(height: 36)
                     .padding(.horizontal, 12)
-                    .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 7))
+                    .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
             }
             .buttonStyle(.plain)
             .foregroundStyle(.white)
@@ -270,8 +270,8 @@ struct VideoCropDialog: View {
     private var trafficLights: some View {
         HStack(spacing: 9) {
             Circle().fill(Color(red: 1.0, green: 0.25, blue: 0.27))
-            Circle().fill(Color.white.opacity(0.22))
-            Circle().fill(Color.white.opacity(0.22))
+            Circle().fill(Theme.borderStrong)
+            Circle().fill(Theme.borderStrong)
         }
         .frame(width: 60, height: 14)
     }
@@ -297,10 +297,10 @@ struct VideoCropDialog: View {
                     .font(.system(size: 13, weight: .medium))
                     .frame(height: 36)
                     .padding(.horizontal, 13)
-                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                    .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 6))
                     .overlay {
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.white.opacity(0.08))
+                            .stroke(Theme.border)
                     }
                     .foregroundStyle(.white.opacity(0.92))
             }
@@ -390,10 +390,10 @@ private struct VideoCropKeyboardShortcutsDropdown: View {
                         .foregroundStyle(Color.white.opacity(0.92))
                         .lineLimit(1)
                         .frame(width: 54, height: 24)
-                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 5))
+                        .background(Theme.border, in: RoundedRectangle(cornerRadius: 5))
                         .overlay {
                             RoundedRectangle(cornerRadius: 5)
-                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                .stroke(Theme.border, lineWidth: 1)
                         }
 
                     Text(shortcut.action)
@@ -413,7 +413,7 @@ private struct VideoCropKeyboardShortcutsDropdown: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                .stroke(Theme.border, lineWidth: 1)
         }
     }
 }
@@ -443,7 +443,7 @@ private struct VideoCropCanvas: View {
             let displayRect = VideoCropGeometry.displayRect(for: cropRect, sourceSize: safeSourceSize, videoFrame: videoFrame)
 
             ZStack(alignment: .topLeading) {
-                Color.black.opacity(0.18)
+                Theme.scrim
 
                 NativeVideoPlayer(playback: playback)
                     .frame(width: videoFrame.width, height: videoFrame.height)
@@ -619,7 +619,7 @@ private struct CropNumberField: View {
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
             .frame(width: 64, height: 36)
-            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 7))
+            .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
     }
 }
 
@@ -632,7 +632,7 @@ private struct CropGuideLines: View {
                 path.move(to: CGPoint(x: 0, y: proxy.size.height / 2))
                 path.addLine(to: CGPoint(x: proxy.size.width, y: proxy.size.height / 2))
             }
-            .stroke(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [2, 4]))
+            .stroke(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [2, 4]))
         }
     }
 }

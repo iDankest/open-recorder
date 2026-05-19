@@ -63,14 +63,14 @@ struct OnboardingView: View {
                 Label("Continue", systemImage: "checkmark.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .frame(width: 180, height: 40)
-                    .foregroundStyle(driver.state.canContinue ? Color.white : Color.white.opacity(0.34))
+                    .foregroundStyle(driver.state.canContinue ? Color.white : Theme.fgSubtle)
                     .background(
-                        driver.state.canContinue ? Color.brand : Color.studioControl,
+                        driver.state.canContinue ? Theme.accent : Theme.surfaceControl,
                         in: RoundedRectangle(cornerRadius: 8)
                     )
                     .overlay {
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(driver.state.canContinue ? Color.brand.opacity(0.45) : Color.studioBorder)
+                            .stroke(driver.state.canContinue ? Theme.accent.opacity(0.45) : Theme.border)
                     }
             }
             .disabled(!driver.state.canContinue)
@@ -78,7 +78,7 @@ struct OnboardingView: View {
             Spacer(minLength: 46)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.studioBackground)
+        .background(Theme.appBg)
         .onAppear {
             driver.send(.appeared)
         }
@@ -182,7 +182,7 @@ private struct OnboardingPermissionRow: View {
 
                 Text(description)
                     .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(Color.white.opacity(0.42))
+                    .foregroundStyle(Theme.fgSubtle)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -214,7 +214,7 @@ private struct OnboardingPermissionRow: View {
     private var foregroundColor: Color {
         switch buttonState {
         case .action, .settings:
-            Color.brand
+            Theme.accent
         case .enabled:
             Color.white.opacity(0.94)
         }
@@ -223,18 +223,18 @@ private struct OnboardingPermissionRow: View {
     private var backgroundColor: Color {
         switch buttonState {
         case .action, .settings:
-            Color.studioControl
+            Theme.surfaceControl
         case .enabled:
-            Color.brand.opacity(0.18)
+            Theme.accent.opacity(0.18)
         }
     }
 
     private var borderColor: Color {
         switch buttonState {
         case .action, .settings:
-            Color.studioBorder
+            Theme.border
         case .enabled:
-            Color.brand.opacity(0.42)
+            Theme.accent.opacity(0.42)
         }
     }
 }

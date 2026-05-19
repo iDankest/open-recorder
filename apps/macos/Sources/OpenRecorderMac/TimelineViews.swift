@@ -33,7 +33,7 @@ struct TimelinePanel: View {
         VStack(spacing: 0) {
             timelineToolbar
 
-            Rectangle().fill(Color.studioBorder).frame(height: 1)
+            Rectangle().fill(Theme.border).frame(height: 1)
 
             ZStack(alignment: .top) {
                 Color.clear
@@ -86,7 +86,7 @@ struct TimelinePanel: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .frame(height: 28)
-                    .overlay { RoundedRectangle(cornerRadius: 7).stroke(Color.studioBorder) }
+                    .overlay { RoundedRectangle(cornerRadius: 7).stroke(Theme.border) }
 
                 Spacer()
 
@@ -181,13 +181,13 @@ private struct TimelinePlaybackControl: View {
                 .offset(x: playback.isPlaying ? 0 : 1)
                 .background {
                     Circle()
-                        .fill(playback.isPlaying ? Color.brand.opacity(isHovering ? 0.95 : 0.86) : Color.white.opacity(isHovering ? 0.14 : 0.09))
+                        .fill(playback.isPlaying ? Theme.accent.opacity(isHovering ? 0.95 : 0.86) : Color.white.opacity(isHovering ? 0.14 : 0.09))
                 }
                 .overlay {
                     Circle()
-                        .stroke(playback.isPlaying ? Color.brand.opacity(0.48) : Color.white.opacity(isHovering ? 0.24 : 0.12), lineWidth: 1)
+                        .stroke(playback.isPlaying ? Theme.accent.opacity(0.48) : Color.white.opacity(isHovering ? 0.24 : 0.12), lineWidth: 1)
                 }
-                .shadow(color: Color.black.opacity(0.22), radius: 8, y: 3)
+                .shadow(color: Theme.scrim, radius: 8, y: 3)
         }
         .disabled(playback.player == nil)
         .opacity(playback.player == nil ? 0.42 : 1)
@@ -260,7 +260,7 @@ private struct TimelineZoomSlider: View {
                     .background(Color.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 6))
                     .overlay {
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            .stroke(Theme.border, lineWidth: 1)
                     }
                     .offset(y: 27)
                     .allowsHitTesting(false)
@@ -454,7 +454,7 @@ struct TimelineRuler: View {
 
                 ForEach(TimelineRulerTickBuilder.ticks(visibleStart: viewport.visibleStart, visibleDuration: displayDuration, totalDuration: viewport.duration)) { tick in
                     let x = tickPosition(for: tick.time, width: proxy.size.width)
-                    Rectangle().fill(Color.white.opacity(0.10)).frame(width: 1, height: 6).position(x: x, y: 4)
+                    Rectangle().fill(Theme.border).frame(width: 1, height: 6).position(x: x, y: 4)
                     if !tick.label.isEmpty {
                         Text(tick.label)
                             .font(.system(size: 9, weight: .medium, design: .monospaced))
@@ -547,7 +547,7 @@ struct TimelineClipRow: View {
             )
         }
         .frame(height: TimelineMetrics.clipHeight)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.studioBorder).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
         .task(id: videoURL) { await loadWaveform() }
     }
 
@@ -568,8 +568,8 @@ struct TimelineClipRow: View {
 
     private func clipBody(segment: TimelineClipSegment, width: CGFloat, isSelected: Bool) -> some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(Color.timelineClip.opacity(isSelected ? 0.95 : 1))
-            .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(isSelected ? Color.timelineHandle.opacity(0.95) : Color.timelineClipBorder, lineWidth: isSelected ? 2 : 1) }
+            .fill(Theme.timelineClip.opacity(isSelected ? 0.95 : 1))
+            .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(isSelected ? Theme.timelineHandle.opacity(0.95) : Theme.timelineClipBorder, lineWidth: isSelected ? 2 : 1) }
             .overlay(alignment: .bottom) { TimelineWaveformPreview(samples: waveformSamples).frame(height: 23).padding(.horizontal, 14).padding(.bottom, 4).allowsHitTesting(false) }
             .overlay(alignment: .center) {
                 if width > 82 {
@@ -579,13 +579,13 @@ struct TimelineClipRow: View {
                         Text("\(formatClipDuration(segment.end - segment.start)) @ \(TimelineClipSpeed.label(segment.speed))")
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     }
-                    .foregroundStyle(Color.timelineClipForeground)
-                    .shadow(color: Color.white.opacity(0.22), radius: 3, y: 1)
+                    .foregroundStyle(Theme.timelineClipForeground)
+                    .shadow(color: Theme.borderStrong, radius: 3, y: 1)
                     .allowsHitTesting(false)
                 }
             }
-            .overlay(alignment: .bottomLeading) { Text(formatPlaybackTime(segment.start)).font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundStyle(Color.timelineClipForeground.opacity(0.52)).padding(.leading, 9).padding(.bottom, 4) }
-            .overlay(alignment: .bottomTrailing) { Text(formatPlaybackTime(segment.end)).font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundStyle(Color.timelineClipForeground.opacity(0.52)).padding(.trailing, 9).padding(.bottom, 4) }
+            .overlay(alignment: .bottomLeading) { Text(formatPlaybackTime(segment.start)).font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundStyle(Theme.timelineClipForeground.opacity(0.52)).padding(.leading, 9).padding(.bottom, 4) }
+            .overlay(alignment: .bottomTrailing) { Text(formatPlaybackTime(segment.end)).font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundStyle(Theme.timelineClipForeground.opacity(0.52)).padding(.trailing, 9).padding(.bottom, 4) }
             .padding(.vertical, 5)
             .padding(.horizontal, 2)
     }
@@ -630,10 +630,10 @@ struct TimelineClipRow: View {
 struct TimelineResizeHandle: View {
     var body: some View {
         Circle()
-            .fill(Color.timelineHandle)
+            .fill(Theme.timelineHandle)
             .frame(width: 20, height: 20)
             .overlay { Image(systemName: "arrow.left.and.right").font(.system(size: 8, weight: .bold)).foregroundStyle(Color.black.opacity(0.82)) }
-            .overlay { Circle().stroke(Color.black.opacity(0.20), lineWidth: 1) }
+            .overlay { Circle().stroke(Theme.scrim, lineWidth: 1) }
             .shadow(color: Color.black.opacity(0.24), radius: 6, y: 3)
     }
 }
@@ -656,7 +656,7 @@ struct TimelineWaveformPreview: View {
                 if index == 0 { fillPath.addLine(to: point); strokePath.move(to: point) } else { fillPath.addLine(to: point); strokePath.addLine(to: point) }
             }
             fillPath.addLine(to: CGPoint(x: size.width, y: size.height)); fillPath.closeSubpath()
-            context.fill(fillPath, with: .color(Color.white.opacity(0.18)))
+            context.fill(fillPath, with: .color(Theme.borderStrong))
             context.stroke(strokePath, with: .color(Color.white.opacity(0.24)), lineWidth: 1)
         }
     }
@@ -723,7 +723,7 @@ struct TimelineLayerRow: View {
             .clipped()
         }
         .frame(height: TimelineMetrics.layerHeight)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.studioBorder).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
     }
 
     private var emptyMessage: String {
@@ -797,7 +797,7 @@ struct TimelineRegionItem: View {
                     .foregroundStyle(.white.opacity(0.92))
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
-                    .background(Color.white.opacity(0.18), in: Capsule())
+                    .background(Theme.borderStrong, in: Capsule())
             }
         }
         .minimumScaleFactor(0.75)

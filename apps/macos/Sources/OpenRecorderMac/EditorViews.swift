@@ -103,7 +103,7 @@ struct VideoEditorStudioView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(16)
-        .background(Color.studioMutedBackground)
+        .background(Theme.appBgMuted)
         .sheet(item: editor.activeSheetBinding(exportIsBusy: videoExport.state.phase.isBusy)) { sheet in
             switch sheet {
             case .export:

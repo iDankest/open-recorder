@@ -65,10 +65,10 @@ extension View {
     }
 
     func studioEditorPaneChrome() -> some View {
-        background(Color.studioPanel.opacity(0.86))
+        background(Theme.surface.opacity(0.86))
             .overlay {
                 Rectangle()
-                    .stroke(Color.studioBorder)
+                    .stroke(Theme.border)
             }
     }
 
@@ -312,6 +312,10 @@ struct StudioKeyDownMonitor: NSViewRepresentable {
 }
 
 
+// Top of the HUD surface gradient when recording — destructive-tinted dark;
+// doesn't map cleanly to a global token so it lives as a private constant.
+private let hudRecordingGradientTop = Color(red: 0.16, green: 0.10, blue: 0.11)
+
 struct HUDSurface<Content: View>: View {
     var isRecording = false
     @ViewBuilder var content: Content
@@ -325,15 +329,15 @@ struct HUDSurface<Content: View>: View {
                     .fill(
                         LinearGradient(
                             colors: isRecording
-                                ? [Color(red: 0.16, green: 0.10, blue: 0.11), Color(red: 0.045, green: 0.043, blue: 0.055)]
-                                : [Color(red: 0.10, green: 0.10, blue: 0.13), Color(red: 0.045, green: 0.043, blue: 0.055)],
+                                ? [hudRecordingGradientTop, Theme.appBg]
+                                : [Theme.surfaceRaised, Theme.appBg],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .overlay {
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(isRecording ? Color.red.opacity(0.24) : Color.white.opacity(0.15), lineWidth: 1)
+                            .stroke(isRecording ? Theme.destructive.opacity(0.28) : Theme.borderStrong, lineWidth: 1)
                     }
             }
             .shadow(color: Color.black.opacity(0.36), radius: 28, y: 18)
@@ -353,7 +357,7 @@ struct DragHandle: View {
 struct HUDDivider: View {
     var body: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.10))
+            .fill(Theme.border)
             .frame(width: 1, height: 28)
             .padding(.horizontal, 2)
     }
@@ -367,10 +371,10 @@ struct HUDControlGroup<Content: View>: View {
             content
         }
         .padding(4)
-        .background(Color.black.opacity(0.20), in: Capsule())
+        .background(Theme.scrim, in: Capsule())
         .overlay {
             Capsule()
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(Theme.borderSubtle, lineWidth: 1)
         }
     }
 }
@@ -393,7 +397,7 @@ struct HUDPrimaryButton: View {
                         .font(.system(size: 10, weight: .bold, design: .rounded))
                         .padding(.horizontal, 6)
                         .frame(height: 20)
-                        .background((isDestructive ? Color.white : Color.black).opacity(0.14), in: Capsule())
+                        .background((isDestructive ? Theme.destructiveFg : Theme.actionPrimaryFg).opacity(0.14), in: Capsule())
                 }
             }
             .font(.system(size: 12, weight: .semibold))
@@ -402,8 +406,8 @@ struct HUDPrimaryButton: View {
             .frame(minWidth: 116)
             .frame(height: 40)
             .padding(.horizontal, 14)
-            .background(isDestructive ? Color.red.opacity(0.86) : Color.white, in: Capsule())
-            .foregroundStyle(isDestructive ? Color.white : Color.studioBackground)
+            .background(isDestructive ? Theme.destructive : Theme.actionPrimary, in: Capsule())
+            .foregroundStyle(isDestructive ? Theme.destructiveFg : Theme.actionPrimaryFg)
         }
     }
 }
@@ -419,8 +423,8 @@ struct HUDPrimaryIconButton: View {
             Image(systemName: symbolName)
                 .font(.system(size: 14, weight: .semibold))
                 .frame(width: 42, height: 40)
-                .background(isDestructive ? Color.red.opacity(0.86) : Color.white, in: Circle())
-                .foregroundStyle(isDestructive ? Color.white : Color.studioBackground)
+                .background(isDestructive ? Theme.destructive : Theme.actionPrimary, in: Circle())
+                .foregroundStyle(isDestructive ? Theme.destructiveFg : Theme.actionPrimaryFg)
         }
     }
 }
@@ -455,7 +459,7 @@ struct HUDPermissionGroup: View {
                 .font(.system(size: 11, weight: .semibold))
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
-                .foregroundStyle(Color.red.opacity(0.95))
+                .foregroundStyle(Theme.statusError.opacity(0.95))
                 .padding(.leading, 10)
 
             StudioButton(hitTarget: .capsule, action: action) {
@@ -465,16 +469,16 @@ struct HUDPermissionGroup: View {
                     .fixedSize(horizontal: true, vertical: false)
                     .padding(.horizontal, 10)
                     .frame(height: 30)
-                    .background(Color.red.opacity(0.18), in: Capsule())
-                    .foregroundStyle(Color.red.opacity(0.95))
+                    .background(Theme.statusError.opacity(0.18), in: Capsule())
+                    .foregroundStyle(Theme.statusError.opacity(0.95))
             }
         }
         .frame(height: 38)
         .padding(.trailing, 4)
-        .background(Color.red.opacity(0.10), in: Capsule())
+        .background(Theme.statusError.opacity(0.10), in: Capsule())
         .overlay {
             Capsule()
-                .stroke(Color.red.opacity(0.25), lineWidth: 1)
+                .stroke(Theme.statusError.opacity(0.25), lineWidth: 1)
         }
     }
 }
@@ -494,11 +498,11 @@ struct CaptureModeButton: View {
                 .frame(minWidth: 104)
                 .frame(height: 38)
                 .padding(.horizontal, 14)
-                .foregroundStyle(isActive ? Color.studioBackground : Color.white.opacity(0.72))
-                .background(isActive ? Color.white : Color.white.opacity(0.07), in: Capsule())
+                .foregroundStyle(isActive ? Theme.actionPrimaryFg : Theme.fgMuted)
+                .background(isActive ? Theme.actionPrimary : Theme.overlay, in: Capsule())
                 .overlay {
                     Capsule()
-                        .stroke(Color.white.opacity(isActive ? 0 : 0.10), lineWidth: 1)
+                        .stroke(isActive ? Color.clear : Theme.border, lineWidth: 1)
                 }
         }
     }
@@ -518,38 +522,21 @@ struct FlowLabel: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Circle()
-                .fill(dotColor)
-                .frame(width: 8, height: 8)
-                .shadow(color: dotColor.opacity(0.65), radius: 7)
-            VStack(alignment: .leading, spacing: 2) {
+            StatusDot(tone: tone)
+            VStack(alignment: .leading, spacing: 1) {
                 Text(label.uppercased())
                     .font(.system(size: 9, weight: .bold))
                     .lineLimit(1)
-                    .foregroundStyle(Color.white.opacity(0.40))
+                    .foregroundStyle(Theme.fgSubtle)
                 Text(value)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
-                    .foregroundStyle(Color.white.opacity(0.84))
+                    .foregroundStyle(Theme.fgMuted)
             }
         }
-        .frame(width: 104, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(Color.white.opacity(0.06), in: Capsule())
-        .overlay {
-            Capsule()
-                .stroke(Color.white.opacity(0.08))
-        }
-    }
-
-    private var dotColor: Color {
-        switch tone {
-        case .blue: Color.blue
-        case .green: Color.green
-        case .red: Color.red
-        case .amber: Color.yellow
-        }
+        .frame(width: 96, alignment: .leading)
+        .padding(.horizontal, 4)
+        .frame(height: 38)
     }
 }
 
@@ -561,19 +548,14 @@ struct CompactFlowLabel: View {
         HStack(spacing: 7) {
             StatusDot(tone: tone)
             Text(value)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .foregroundStyle(Color.white.opacity(0.84))
+                .foregroundStyle(Theme.fgMuted)
         }
         .frame(width: 74, alignment: .leading)
-        .padding(.horizontal, 9)
+        .padding(.horizontal, 4)
         .frame(height: 38)
-        .background(Color.white.opacity(0.06), in: Capsule())
-        .overlay {
-            Capsule()
-                .stroke(Color.white.opacity(0.08))
-        }
     }
 }
 
@@ -589,10 +571,10 @@ struct StatusDot: View {
 
     private var dotColor: Color {
         switch tone {
-        case .blue: Color.blue
-        case .green: Color.green
-        case .red: Color.red
-        case .amber: Color.yellow
+        case .blue:  Theme.statusInfo
+        case .green: Theme.statusSuccess
+        case .red:   Theme.statusError
+        case .amber: Theme.statusWarning
         }
     }
 }
@@ -608,7 +590,7 @@ struct SourceChip: View {
             StatusDot(tone: source == nil ? .amber : tone)
             Image(systemName: source?.kind == .window ? "macwindow" : source?.kind == .area ? "rectangle.dashed" : "display")
                 .font(.system(size: 14))
-                .foregroundStyle(Color.white.opacity(0.65))
+                .foregroundStyle(Theme.fgMuted)
             Text(source?.name ?? "Choose source")
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
@@ -618,10 +600,10 @@ struct SourceChip: View {
         .padding(.horizontal, 10)
         .frame(minWidth: minWidth, maxWidth: maxWidth, alignment: .leading)
         .frame(height: 38)
-        .background(Color.black.opacity(0.20), in: Capsule())
+        .background(Theme.scrim, in: Capsule())
         .overlay {
             Capsule()
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                .stroke(Theme.border, lineWidth: 1)
         }
         .capsuleHitTarget()
     }
@@ -633,19 +615,21 @@ struct CaptureStatusChip: View {
     var maxWidth: CGFloat = 130
 
     var body: some View {
-        Text(message)
-            .font(.system(size: 12, weight: .semibold))
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .foregroundStyle(isError ? Color.red.opacity(0.95) : Color.white.opacity(0.76))
-            .frame(maxWidth: maxWidth, alignment: .leading)
-            .padding(.horizontal, 10)
-            .frame(height: 38)
-            .background((isError ? Color.red : Color.white).opacity(isError ? 0.12 : 0.06), in: Capsule())
-            .overlay {
-                Capsule()
-                    .stroke((isError ? Color.red : Color.white).opacity(isError ? 0.28 : 0.10), lineWidth: 1)
+        HStack(spacing: 6) {
+            if isError {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.statusError.opacity(0.95))
             }
+            Text(message)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .foregroundStyle(isError ? Theme.statusError.opacity(0.95) : Theme.fgMuted)
+        }
+        .frame(maxWidth: maxWidth, alignment: .leading)
+        .padding(.horizontal, 4)
+        .frame(height: 38)
     }
 }
 
@@ -675,37 +659,86 @@ struct HUDToggle: View {
 
     private var foregroundStyle: Color {
         if isDisabled {
-            return Color.white.opacity(0.25)
+            return Theme.fgDisabled
         }
-        return isActive ? Color.blue.opacity(0.95) : Color.white.opacity(0.55)
+        return isActive ? Theme.accent.opacity(0.95) : Color.white.opacity(0.55)
     }
 
     private var backgroundStyle: Color {
         if isDisabled {
             return Color.white.opacity(0.035)
         }
-        return isActive ? Color.blue.opacity(0.16) : Color.white.opacity(0.06)
+        return isActive ? Theme.accent.opacity(0.16) : Theme.overlay
     }
 
     private var strokeStyle: Color {
         if isDisabled {
-            return Color.white.opacity(0.06)
+            return Theme.overlay
         }
-        return isActive ? Color.blue.opacity(0.35) : Color.white.opacity(0.09)
+        return isActive ? Theme.accent.opacity(0.35) : Theme.border
     }
 }
 
 
-extension Color {
-    static let brand = Color(red: 0.145, green: 0.388, blue: 0.922)
-    static let studioBackground = Color(red: 0.035, green: 0.035, blue: 0.043)
-    static let studioMutedBackground = Color(red: 0.055, green: 0.055, blue: 0.067)
-    static let studioPanel = Color(red: 0.075, green: 0.075, blue: 0.088)
-    static let studioCard = Color(red: 0.10, green: 0.10, blue: 0.12)
-    static let studioControl = Color(red: 0.12, green: 0.12, blue: 0.145)
-    static let studioBorder = Color.white.opacity(0.10)
-    static let timelineClip = Color(red: 0.06, green: 0.34, blue: 1.0)
+// MARK: - Design Tokens (shadcn-aligned, dark theme)
+//
+// Semantic color tokens for the app. Naming follows shadcn/ui conventions
+// adapted to SwiftUI (avoiding clashes with Color.primary / Color.secondary).
+//
+// Usage groups:
+//   Surfaces        appBg / appBgMuted / surface / surfaceRaised / surfaceControl
+//   Foregrounds     fg / fgMuted / fgSubtle / fgDisabled
+//   Strokes         border / borderStrong / borderSubtle
+//   Actions         actionPrimary(+Fg) / accent(+Fg) / destructive(+Fg)
+//   Overlays        overlay / overlayStrong / scrim
+//   Status          statusError / statusWarning / statusSuccess / statusInfo
+//
+// Prefer these over raw Color.white.opacity(N) or Color(red:...) literals.
+
+enum Theme {
+    // Surfaces
+    static let appBg          = Color(red: 0.035, green: 0.035, blue: 0.043)
+    static let appBgMuted     = Color(red: 0.055, green: 0.055, blue: 0.067)
+    static let surface        = Color(red: 0.075, green: 0.075, blue: 0.088)
+    static let surfaceRaised  = Color(red: 0.10, green: 0.10, blue: 0.12)
+    static let surfaceControl = Color(red: 0.12, green: 0.12, blue: 0.145)
+
+    // Foregrounds
+    static let fg         = Color.white
+    static let fgMuted    = Color.white.opacity(0.62)
+    static let fgSubtle   = Color.white.opacity(0.40)
+    static let fgDisabled = Color.white.opacity(0.25)
+
+    // Strokes
+    static let border        = Color.white.opacity(0.10)
+    static let borderStrong  = Color.white.opacity(0.18)
+    static let borderSubtle  = Color.white.opacity(0.06)
+
+    // Actions
+    static let actionPrimary    = Color.white
+    static let actionPrimaryFg  = Color(red: 0.035, green: 0.035, blue: 0.043)
+
+    static let accent           = Color(red: 0.145, green: 0.388, blue: 0.922)
+    static let accentFg         = Color.white
+
+    static let destructive      = Color.red.opacity(0.86)
+    static let destructiveFg    = Color.white
+
+    // Overlays
+    static let overlay        = Color.white.opacity(0.06)
+    static let overlayStrong  = Color.white.opacity(0.10)
+    static let scrim          = Color.black.opacity(0.20)
+
+    // Status
+    static let statusError    = Color.red
+    static let statusWarning  = Color.yellow
+    static let statusSuccess  = Color.green
+    static let statusInfo     = Color.blue
+
+    // Timeline palette
+    static let timelineClip           = Color(red: 0.06, green: 0.34, blue: 1.0)
     static let timelineClipForeground = Color.white.opacity(0.94)
-    static let timelineClipBorder = Color(red: 0.28, green: 0.62, blue: 1.0).opacity(0.88)
-    static let timelineHandle = Color(red: 0.34, green: 0.68, blue: 1.0)
+    static let timelineClipBorder     = Color(red: 0.28, green: 0.62, blue: 1.0).opacity(0.88)
+    static let timelineHandle         = Color(red: 0.34, green: 0.68, blue: 1.0)
 }
+

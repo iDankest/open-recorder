@@ -16,7 +16,7 @@ struct TimelineSelectionSidebar: View {
             }
 
             Rectangle()
-                .fill(Color.studioBorder)
+                .fill(Theme.border)
                 .frame(height: 1)
 
             selectionFooter
@@ -44,10 +44,10 @@ struct TimelineSelectionSidebar: View {
             Spacer(minLength: 0)
         }
         .padding(10)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.06))
+                .stroke(Theme.overlay)
         }
     }
 
@@ -190,9 +190,9 @@ struct TimelineSelectionSidebar: View {
 
     private var selectionAccent: Color {
         if edits.selectedClipIndex != nil {
-            return Color.timelineHandle
+            return Theme.timelineHandle
         }
-        return edits.selectedKind?.accent ?? Color.brand
+        return edits.selectedKind?.accent ?? Theme.accent
     }
 
     private var selectionSymbolName: String {
@@ -286,10 +286,10 @@ private struct TimelineSelectionInfoRow: View {
                 .foregroundStyle(Color.secondary.opacity(0.78))
         }
         .padding(10)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.05))
+                .stroke(Theme.overlay)
         }
     }
 }
@@ -307,10 +307,10 @@ private struct TimelineSelectionActionButton: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 34)
                 .foregroundStyle(isDestructive ? Color.red.opacity(0.92) : Color.secondary)
-                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+                .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isDestructive ? Color.red.opacity(0.18) : Color.white.opacity(0.05))
+                        .stroke(isDestructive ? Color.red.opacity(0.18) : Theme.overlay)
                 }
         }
     }
@@ -330,11 +330,11 @@ private struct TimelineClipSpeedPicker: View {
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .frame(maxWidth: .infinity)
                         .frame(height: 30)
-                        .foregroundStyle(isSelected ? Color.timelineClipForeground : Color.secondary)
-                        .background(isSelected ? Color.timelineHandle.opacity(0.92) : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+                        .foregroundStyle(isSelected ? Theme.timelineClipForeground : Color.secondary)
+                        .background(isSelected ? Theme.timelineHandle.opacity(0.92) : Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
                         .overlay {
                             RoundedRectangle(cornerRadius: 7)
-                                .stroke(isSelected ? Color.timelineClipBorder : Color.white.opacity(0.05), lineWidth: isSelected ? 1.5 : 1)
+                                .stroke(isSelected ? Theme.timelineClipBorder : Theme.overlay, lineWidth: isSelected ? 1.5 : 1)
                         }
                 }
                 .help("Set clip speed to \(TimelineClipSpeed.label(value))")
@@ -375,10 +375,10 @@ private struct TimelineZoomDepthPicker: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 30)
                             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                            .background(isSelected ? Color.brand.opacity(0.18) : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+                            .background(isSelected ? Theme.accent.opacity(0.18) : Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
                             .overlay {
                                 RoundedRectangle(cornerRadius: 7)
-                                    .stroke(isSelected ? Color.brand.opacity(0.42) : Color.white.opacity(0.05), lineWidth: isSelected ? 1.5 : 1)
+                                    .stroke(isSelected ? Theme.accent.opacity(0.42) : Theme.overlay, lineWidth: isSelected ? 1.5 : 1)
                             }
                     }
                     .help("Set zoom depth to \(TimelineZoomDepth.label(value))")

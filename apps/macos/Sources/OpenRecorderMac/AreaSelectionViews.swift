@@ -25,7 +25,7 @@ struct AreaSelectionWindowView: View {
                             Rectangle()
                                 .stroke(Color.white, lineWidth: 2)
                         }
-                        .background(Color.white.opacity(0.08))
+                        .background(Theme.border)
                         .frame(width: selectionRect.width, height: selectionRect.height)
                         .position(x: selectionRect.midX, y: selectionRect.midY)
                 }

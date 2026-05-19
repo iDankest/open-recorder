@@ -406,12 +406,12 @@ struct EmptyEditorState: View {
         VStack(spacing: 12) {
             Image(systemName: "film.stack")
                 .font(.system(size: 32))
-                .foregroundStyle(Color.brand)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 66, height: 66)
-                .background(Color.brand.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
+                .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
                 .overlay {
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.brand.opacity(0.22))
+                        .stroke(Theme.accent.opacity(0.22))
                 }
             Text("No Recording Open")
                 .font(.system(size: 18, weight: .semibold))
@@ -484,7 +484,7 @@ struct PlaybackPreview: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.studioBorder)
+                    .stroke(Theme.border)
             }
         }
         .onChange(of: edits) { _, newValue in
@@ -728,7 +728,7 @@ private struct PreviewAspectDropdown: View {
                         if selection == option {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Color.brand)
+                                .foregroundStyle(Theme.accent)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -737,12 +737,12 @@ private struct PreviewAspectDropdown: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .background(selection == option ? Color.white.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                .background(selection == option ? Theme.border : Color.clear, in: RoundedRectangle(cornerRadius: 6))
             }
         }
         .padding(8)
         .frame(width: 164)
-        .background(Color.studioPanel)
+        .background(Theme.surface)
     }
 }
 

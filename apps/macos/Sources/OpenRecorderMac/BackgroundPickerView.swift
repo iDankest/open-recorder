@@ -41,7 +41,7 @@ struct BackgroundPickerView: View {
                             .font(.system(size: 11, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .frame(height: 28)
-                            .background(activeKind == kind ? Color.brand : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+                            .background(activeKind == kind ? Theme.accent : Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
                             .foregroundStyle(activeKind == kind ? Color.white : Color.secondary)
                             .help(kind.title)
                     }
@@ -110,7 +110,7 @@ struct BackgroundPickerView: View {
                         .frame(height: tileHeight)
                         .overlay {
                             RoundedRectangle(cornerRadius: tileCornerRadius)
-                                .stroke(selectedGradientID == preset.id ? Color.brand : Color.white.opacity(0.10), lineWidth: selectedGradientID == preset.id ? 2 : 1)
+                                .stroke(selectedGradientID == preset.id ? Theme.accent : Theme.border, lineWidth: selectedGradientID == preset.id ? 2 : 1)
                         }
                 }
                 .help(preset.id.replacingOccurrences(of: "-", with: " ").capitalized)
@@ -130,7 +130,7 @@ struct BackgroundPickerView: View {
                         .frame(width: 28, height: 28)
                         .overlay {
                             Circle()
-                                .stroke(selectedColor == swatch ? Color.brand : Color.white.opacity(0.22), lineWidth: selectedColor == swatch ? 2 : 1)
+                                .stroke(selectedColor == swatch ? Theme.accent : Theme.borderStrong, lineWidth: selectedColor == swatch ? 2 : 1)
                         }
                 }
             }
@@ -149,7 +149,7 @@ struct BackgroundPickerView: View {
                         .clipShape(RoundedRectangle(cornerRadius: tileCornerRadius))
                         .overlay {
                             RoundedRectangle(cornerRadius: tileCornerRadius)
-                                .stroke(selectedWallpaperID == preset.id ? Color.brand : Color.white.opacity(0.10), lineWidth: selectedWallpaperID == preset.id ? 2 : 1)
+                                .stroke(selectedWallpaperID == preset.id ? Theme.accent : Theme.border, lineWidth: selectedWallpaperID == preset.id ? 2 : 1)
                         }
                 }
                 .help(preset.label)
@@ -219,7 +219,7 @@ struct WallpaperThumbnail: View {
                     .aspectRatio(contentMode: .fill)
             } else {
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(Color.studioCard)
+                    .fill(Theme.surfaceRaised)
                     .overlay {
                         Image(systemName: "photo")
                             .foregroundStyle(Color.secondary)
@@ -280,7 +280,7 @@ struct WallpaperFill: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else {
-                Color.studioCard
+                Theme.surfaceRaised
             }
         }
         .clipped()

@@ -53,7 +53,7 @@ struct ScreenshotEditorStudioView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(16)
-        .background(Color.studioMutedBackground)
+        .background(Theme.appBgMuted)
         .sheet(isPresented: editor.exportDialogBinding) {
             ScreenshotExportDialog(
                 onSave: {
@@ -154,9 +154,9 @@ struct ScreenshotExportDialog: View {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.brand)
+                    .foregroundStyle(Theme.accent)
                     .frame(width: 34, height: 34)
-                    .background(Color.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                    .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Export PNG")
@@ -178,7 +178,7 @@ struct ScreenshotExportDialog: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .frame(height: 36)
                         .padding(.horizontal, 12)
-                        .background(Color.brand, in: RoundedRectangle(cornerRadius: 8))
+                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8))
                         .foregroundStyle(Color.white)
                 }
 
@@ -190,7 +190,7 @@ struct ScreenshotExportDialog: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .frame(height: 36)
                         .padding(.horizontal, 12)
-                        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                         .foregroundStyle(Color.primary)
                 }
             }
@@ -205,7 +205,7 @@ struct ScreenshotExportDialog: View {
             }
         }
         .padding(18)
-        .background(Color.studioPanel)
+        .background(Theme.surface)
     }
 }
 
@@ -265,7 +265,7 @@ struct ScreenshotCanvas: View {
                             cornerRadius: layout.backgroundRoundness * previewScale,
                             style: .continuous
                         )
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Theme.border, lineWidth: 1)
                     }
 
                 Image(nsImage: image)
@@ -339,7 +339,7 @@ struct ScreenshotSettingsPanel: View {
             }
 
             Rectangle()
-                .fill(Color.studioBorder)
+                .fill(Theme.border)
                 .frame(height: 1)
 
             HStack(spacing: 8) {
@@ -360,9 +360,9 @@ struct ScreenshotSettingsPanel: View {
         HStack(spacing: 9) {
             Image(systemName: "photo")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.brand)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 30, height: 30)
-                .background(Color.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Screenshot Settings")
@@ -376,10 +376,10 @@ struct ScreenshotSettingsPanel: View {
             Spacer(minLength: 0)
         }
         .padding(10)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.06))
+                .stroke(Theme.overlay)
         }
     }
 
@@ -395,7 +395,7 @@ struct Checkerboard: View {
                 for column in 0...columns {
                     let isLight = (row + column).isMultiple(of: 2)
                     let rect = CGRect(x: CGFloat(column) * tile, y: CGFloat(row) * tile, width: tile, height: tile)
-                    context.fill(Path(rect), with: .color(isLight ? Color.white.opacity(0.18) : Color.white.opacity(0.08)))
+                    context.fill(Path(rect), with: .color(isLight ? Theme.borderStrong : Theme.border))
                 }
             }
         }

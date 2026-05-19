@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ElasticSlider: View {
@@ -11,6 +12,8 @@ struct ElasticSlider: View {
     @State private var visualProgress: Double?
     @State private var dragStartValue: Double = 0
     @State private var isDragging = false
+    @State private var isHovering = false
+    @State private var isPointingCursorActive = false
 
     private let trackHeight: CGFloat = 16
     private let hitHeight: CGFloat = 32
@@ -31,13 +34,13 @@ struct ElasticSlider: View {
 
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.white.opacity(0.10))
+                    .fill(Theme.border)
                     .overlay {
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.12),
+                                Theme.border,
                                 Color.clear,
-                                Color.black.opacity(0.18)
+                                Theme.scrim
                             ],
                             startPoint: .top,
                             endPoint: .bottom
@@ -54,7 +57,7 @@ struct ElasticSlider: View {
                     .clipShape(Capsule())
                     .overlay {
                         Capsule()
-                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                            .stroke(Theme.border, lineWidth: 1)
                     }
                     .frame(height: trackHeight)
                     .scaleEffect(x: scaleX, y: scaleY)
@@ -67,6 +70,16 @@ struct ElasticSlider: View {
         }
         .frame(height: hitHeight)
         .opacity(isEnabled ? 1 : 0.5)
+        .onHover { hovering in
+            isHovering = hovering
+            updateCursor()
+        }
+        .onChange(of: isEnabled) {
+            updateCursor()
+        }
+        .onDisappear {
+            popPointingCursorIfNeeded()
+        }
         .focusable(isEnabled)
         .focusEffectDisabled()
         .onMoveCommand(perform: handleMoveCommand)
@@ -134,6 +147,26 @@ struct ElasticSlider: View {
         withAnimation(.interpolatingSpring(stiffness: 200, damping: 60)) {
             visualProgress = normalized(nextValue)
         }
+    }
+
+    private func updateCursor() {
+        if isEnabled && isHovering {
+            pushPointingCursorIfNeeded()
+        } else {
+            popPointingCursorIfNeeded()
+        }
+    }
+
+    private func pushPointingCursorIfNeeded() {
+        guard !isPointingCursorActive else { return }
+        NSCursor.pointingHand.push()
+        isPointingCursorActive = true
+    }
+
+    private func popPointingCursorIfNeeded() {
+        guard isPointingCursorActive else { return }
+        NSCursor.pop()
+        isPointingCursorActive = false
     }
 
     private func normalized(_ input: Double) -> Double {

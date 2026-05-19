@@ -16,7 +16,7 @@ struct CaptureStudioView: View {
 
     var body: some View {
         ZStack {
-            Color.studioBackground
+            Theme.appBg
 
             switch model.hudState.phase {
             case .idle, .choosingMode:
@@ -55,7 +55,7 @@ struct CaptureStudioView: View {
                         .padding(.bottom, 12)
                 }
                 .padding(16)
-                .background(Color.studioMutedBackground)
+                .background(Theme.appBgMuted)
                 .onAppear {
                     sourceSelector.configure(refreshSources: {
                         model.reloadSourcesForPreview()
@@ -134,10 +134,10 @@ struct SourceTypeChoiceHUD: View {
                 .font(.system(size: 13, weight: .bold))
                 .frame(width: 38, height: 38)
                 .foregroundStyle(Color.white.opacity(0.70))
-                .background(Color.white.opacity(0.06), in: Circle())
+                .background(Theme.overlay, in: Circle())
                 .overlay {
                     Circle()
-                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                        .stroke(Theme.border, lineWidth: 1)
                 }
         }
     }
@@ -157,10 +157,10 @@ struct SourceTypeButton: View {
                 .frame(height: 38)
                 .padding(.horizontal, 12)
                 .foregroundStyle(Color.white.opacity(0.76))
-                .background(Color.white.opacity(0.07), in: Capsule())
+                .background(Theme.overlay, in: Capsule())
                 .overlay {
                     Capsule()
-                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                        .stroke(Theme.border, lineWidth: 1)
                 }
         }
     }

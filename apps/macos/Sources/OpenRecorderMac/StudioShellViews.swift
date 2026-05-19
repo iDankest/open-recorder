@@ -33,7 +33,7 @@ struct StudioShell: View {
             detailView
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.studioBackground)
+        .background(Theme.appBg)
         .sheet(isPresented: workspace.shortcutsHelpBinding) {
             EditorShortcutsHelpDialog(isPresented: workspace.shortcutsHelpBinding)
         }
@@ -144,10 +144,10 @@ struct StudioNavBar: View {
             }
         }
         .padding(4)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
+        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 9))
         .overlay {
             RoundedRectangle(cornerRadius: 9)
-                .stroke(Color.studioBorder.opacity(0.8), lineWidth: 1)
+                .stroke(Theme.border.opacity(0.8), lineWidth: 1)
         }
     }
 
@@ -180,7 +180,7 @@ struct StudioNavButton: View {
             .frame(height: 30)
             .padding(.horizontal, 10)
             .foregroundStyle(isActive ? Color.white : Color.secondary)
-            .background(isActive ? Color.brand : Color.clear, in: RoundedRectangle(cornerRadius: 7))
+            .background(isActive ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 7))
         }
     }
 }
@@ -213,7 +213,7 @@ struct EditorHistoryButton: View {
                 .font(.system(size: 12, weight: .semibold))
                 .frame(width: 28, height: 28)
                 .foregroundStyle(isEnabled ? Color.primary.opacity(0.86) : Color.secondary.opacity(0.38))
-                .background(isEnabled ? Color.white.opacity(0.065) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                .background(isEnabled ? Theme.overlay : Color.clear, in: RoundedRectangle(cornerRadius: 6))
         }
         .disabled(!isEnabled)
         .accessibilityLabel(title)
@@ -248,10 +248,10 @@ struct StudioTitleBar: View {
         }
         .frame(height: 48)
         .padding(.horizontal, 12)
-        .background(Color.studioPanel.opacity(0.95))
+        .background(Theme.surface.opacity(0.95))
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.studioBorder)
+                .fill(Theme.border)
                 .frame(height: 1)
         }
         .simultaneousGesture(
@@ -273,10 +273,10 @@ struct StudioTitleBar: View {
                 }
             }
             .padding(3)
-            .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+            .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.studioBorder.opacity(0.8), lineWidth: 1)
+                    .stroke(Theme.border.opacity(0.8), lineWidth: 1)
             }
         }
     }
@@ -292,7 +292,7 @@ struct StudioTitleBar: View {
                     .labelStyle(.titleAndIcon)
                     .padding(.horizontal, 12)
                     .frame(height: 32)
-                    .background(Color.brand, in: RoundedRectangle(cornerRadius: 7))
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 7))
                     .foregroundStyle(Color.white)
                 }
         } else if workspace.state.selectedSection == .editor, screenshotURL != nil {
@@ -304,7 +304,7 @@ struct StudioTitleBar: View {
                     .labelStyle(.titleAndIcon)
                     .padding(.horizontal, 12)
                     .frame(height: 32)
-                    .background(Color.brand, in: RoundedRectangle(cornerRadius: 7))
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 7))
                     .foregroundStyle(Color.white)
             }
         }
@@ -409,7 +409,7 @@ struct EditorShortcutsHelpDialog: View {
                         .font(.system(size: 12, weight: .bold))
                         .frame(width: 28, height: 28)
                         .foregroundStyle(Color.secondary)
-                        .background(Color.white.opacity(0.06), in: Circle())
+                        .background(Theme.overlay, in: Circle())
                 }
             }
 
@@ -420,10 +420,10 @@ struct EditorShortcutsHelpDialog: View {
                             .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .foregroundStyle(Color.primary)
                             .frame(width: 104, height: 30)
-                            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 7))
+                            .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
                             .overlay {
                                 RoundedRectangle(cornerRadius: 7)
-                                    .stroke(Color.studioBorder, lineWidth: 1)
+                                    .stroke(Theme.border, lineWidth: 1)
                             }
 
                         Text(shortcut.action)
@@ -436,7 +436,7 @@ struct EditorShortcutsHelpDialog: View {
 
                     if shortcut.id != shortcuts.last?.id {
                         Rectangle()
-                            .fill(Color.studioBorder.opacity(0.8))
+                            .fill(Theme.border.opacity(0.8))
                             .frame(height: 1)
                     }
                 }
@@ -444,7 +444,7 @@ struct EditorShortcutsHelpDialog: View {
         }
         .padding(22)
         .frame(width: 430)
-        .background(Color.studioPanel)
+        .background(Theme.surface)
         .background {
             StudioKeyDownMonitor { event in
                 handleShortcut(event)

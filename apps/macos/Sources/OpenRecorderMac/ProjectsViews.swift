@@ -21,7 +21,7 @@ struct ProjectsStudioView: View {
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 4)
-                                .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
+                                .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 6))
                         }
                         Text("Open saved captures from this device.")
                             .font(.system(size: 13))
@@ -37,7 +37,7 @@ struct ProjectsStudioView: View {
                             .font(.system(size: 12, weight: .semibold))
                             .frame(height: 32)
                             .padding(.horizontal, 12)
-                            .background(Color.brand, in: RoundedRectangle(cornerRadius: 7))
+                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 7))
                             .foregroundStyle(.white)
                     }
                 }
@@ -96,7 +96,7 @@ struct ProjectsStudioView: View {
                 }
 
                 Rectangle()
-                    .fill(Color.studioBorder)
+                    .fill(Theme.border)
                     .frame(height: 1)
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -115,15 +115,15 @@ struct ProjectsStudioView: View {
                                 ProjectListRow(project: project)
                                 if project.id != selectedProjects.last?.id {
                                     Rectangle()
-                                        .fill(Color.studioBorder)
+                                        .fill(Theme.border)
                                         .frame(height: 1)
                                 }
                             }
                         }
-                        .background(Color.studioPanel.opacity(0.78), in: RoundedRectangle(cornerRadius: 10))
+                        .background(Theme.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 10))
                         .overlay {
                             RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.studioBorder)
+                                .stroke(Theme.border)
                         }
                     }
                 }
@@ -132,7 +132,7 @@ struct ProjectsStudioView: View {
             .padding(32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.studioMutedBackground)
+        .background(Theme.appBgMuted)
     }
 
     private var recordingProjects: [ProjectSummary] {
@@ -208,16 +208,16 @@ struct ProjectLibraryTabBar: View {
                     .frame(height: 34)
                     .padding(.horizontal, 12)
                     .foregroundStyle(selection == tab ? Color.white : Color.secondary)
-                    .background(selection == tab ? Color.brand : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+                    .background(selection == tab ? Theme.accent : Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                 }
             }
             Spacer()
         }
         .padding(4)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.studioBorder.opacity(0.9))
+                .stroke(Theme.border.opacity(0.9))
         }
     }
 
@@ -248,7 +248,7 @@ struct ProjectActionCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: symbolName)
-                    .foregroundStyle(Color.brand)
+                    .foregroundStyle(Theme.accent)
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
             }
@@ -260,16 +260,16 @@ struct ProjectActionCard: View {
                     .font(.system(size: 13, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
-                    .background(style == .primary ? Color.brand : Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+                    .background(style == .primary ? Theme.accent : Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                     .foregroundStyle(style == .primary ? Color.white : Color.primary)
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.studioPanel.opacity(0.78), in: RoundedRectangle(cornerRadius: 10))
+        .background(Theme.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.studioBorder)
+                .stroke(Theme.border)
         }
     }
 }
@@ -288,12 +288,12 @@ struct ProjectListRow: View {
                 Image(systemName: project.mediaKind.titleIconSystemName)
                     .font(.system(size: 18, weight: .medium))
                     .frame(width: 40, height: 40)
-                    .background(Color.brand.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
+                    .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
                     .overlay {
                         RoundedRectangle(cornerRadius: 7)
-                            .stroke(Color.brand.opacity(0.22))
+                            .stroke(Theme.accent.opacity(0.22))
                     }
-                    .foregroundStyle(Color.brand)
+                    .foregroundStyle(Theme.accent)
 
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
@@ -345,8 +345,8 @@ struct EmptyProjectsPanel: View {
             Image(systemName: tab.symbolName)
                 .font(.system(size: 30))
                 .frame(width: 64, height: 64)
-                .foregroundStyle(Color.brand)
-                .background(Color.brand.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
+                .foregroundStyle(Theme.accent)
+                .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
             Text(tab == .screenRecordings ? "No recent recordings yet" : "No recent screenshots yet")
                 .font(.system(size: 16, weight: .semibold))
             Text(tab == .screenRecordings ? "Screen recording projects will appear here after you save or open one." : "Screenshot projects will appear here after you capture or open one.")
@@ -354,10 +354,10 @@ struct EmptyProjectsPanel: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 240)
-        .background(Color.studioPanel.opacity(0.60), in: RoundedRectangle(cornerRadius: 10))
+        .background(Theme.surface.opacity(0.60), in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.studioBorder, style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                .stroke(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
         }
     }
 }

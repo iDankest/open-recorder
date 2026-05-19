@@ -59,7 +59,7 @@ struct SettingsInspector: View {
         .background(Color.white.opacity(0.025))
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(Color.studioBorder)
+                .fill(Theme.border)
                 .frame(width: 1)
         }
     }
@@ -75,7 +75,7 @@ struct SettingsInspector: View {
             }
 
             Rectangle()
-                .fill(Color.studioBorder)
+                .fill(Theme.border)
                 .frame(height: 1)
 
             inspectorFooter
@@ -86,9 +86,9 @@ struct SettingsInspector: View {
         HStack(spacing: 9) {
             Image(systemName: activeTab.symbolName)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.brand)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 30, height: 30)
-                .background(Color.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(activeTab.title)
@@ -106,13 +106,13 @@ struct SettingsInspector: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
-                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 5))
+                .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 5))
         }
         .padding(10)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.06))
+                .stroke(Theme.overlay)
         }
     }
 
@@ -205,11 +205,11 @@ struct InspectorRailButton: View {
             Image(systemName: tab.symbolName)
                 .font(.system(size: 15, weight: .semibold))
                 .frame(width: 40, height: 40)
-                .foregroundStyle(isActive ? Color.brand : Color.secondary)
-                .background(isActive ? Color.brand.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 9))
+                .foregroundStyle(isActive ? Theme.accent : Color.secondary)
+                .background(isActive ? Theme.accent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 9))
                 .overlay {
                     RoundedRectangle(cornerRadius: 9)
-                        .stroke(isActive ? Color.brand.opacity(0.24) : Color.clear, lineWidth: 1)
+                        .stroke(isActive ? Theme.accent.opacity(0.24) : Color.clear, lineWidth: 1)
                 }
         }
     }
@@ -288,7 +288,7 @@ struct InspectorGroup<Content: View>: View {
         .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.05))
+                .stroke(Theme.overlay)
         }
     }
 }
@@ -350,9 +350,9 @@ struct InsetColorPicker: View {
 
                 Image(systemName: "paintpalette.fill")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.brand)
+                    .foregroundStyle(Theme.accent)
                     .frame(width: 28, height: 28)
-                    .background(Color.brand.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                    .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
             }
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 6), count: 5), spacing: 6) {
@@ -365,7 +365,7 @@ struct InsetColorPicker: View {
                             .frame(height: 30)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 7)
-                                    .stroke(color == swatch ? Color.brand : Color.white.opacity(0.18), lineWidth: color == swatch ? 2 : 1)
+                                    .stroke(color == swatch ? Theme.accent : Theme.borderStrong, lineWidth: color == swatch ? 2 : 1)
                             }
                     }
                     .help(swatch.hexString)
@@ -400,7 +400,7 @@ struct InsetBalancePicker: View {
 
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.white.opacity(0.045))
+                        .fill(Theme.overlay)
 
                     Path { path in
                         path.move(to: CGPoint(x: proxy.size.width / 2, y: 0))
@@ -408,21 +408,21 @@ struct InsetBalancePicker: View {
                         path.move(to: CGPoint(x: 0, y: proxy.size.height / 2))
                         path.addLine(to: CGPoint(x: proxy.size.width, y: proxy.size.height / 2))
                     }
-                    .stroke(Color.white.opacity(0.10), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .stroke(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
 
                     Circle()
-                        .fill(Color.studioPanel)
+                        .fill(Theme.surface)
                         .frame(width: knobSize, height: knobSize)
                         .overlay {
                             Circle()
-                                .stroke(Color.brand, lineWidth: 2)
+                                .stroke(Theme.accent, lineWidth: 2)
                         }
                         .shadow(color: Color.black.opacity(0.24), radius: 8, y: 4)
                         .position(x: x, y: y)
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.white.opacity(0.08))
+                        .stroke(Theme.border)
                 }
                 .rectangularHitTarget()
                 .gesture(
@@ -442,10 +442,10 @@ struct InsetBalancePicker: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 30)
                     .foregroundStyle(Color.secondary.opacity(0.92))
-                    .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 7))
+                    .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
                     .overlay {
                         RoundedRectangle(cornerRadius: 7)
-                            .stroke(Color.white.opacity(0.06))
+                            .stroke(Theme.overlay)
                     }
             }
             .disabled(balance.clamped == .centered)
@@ -496,10 +496,10 @@ struct CursorStylePicker: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 58)
                         .foregroundStyle(selection == style ? Color.white : Color.primary.opacity(0.86))
-                        .background(selection == style ? Color.brand.opacity(0.82) : Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 7))
+                        .background(selection == style ? Theme.accent.opacity(0.82) : Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
                         .overlay {
                             RoundedRectangle(cornerRadius: 7)
-                                .stroke(selection == style ? Color.brand.opacity(0.95) : Color.white.opacity(0.07))
+                                .stroke(selection == style ? Theme.accent.opacity(0.95) : Theme.overlay)
                         }
                     }
                 }
@@ -536,10 +536,10 @@ struct CursorVariantPicker: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .foregroundStyle(selection == variant ? Color.white : Color.primary.opacity(0.82))
-                        .background(selection == variant ? Color.brand.opacity(0.82) : Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 7))
+                        .background(selection == variant ? Theme.accent.opacity(0.82) : Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
                         .overlay {
                             RoundedRectangle(cornerRadius: 7)
-                                .stroke(selection == variant ? Color.brand.opacity(0.95) : Color.white.opacity(0.08), lineWidth: selection == variant ? 2 : 1)
+                                .stroke(selection == variant ? Theme.accent.opacity(0.95) : Theme.border, lineWidth: selection == variant ? 2 : 1)
                         }
                         .overlay(alignment: .topTrailing) {
                             if selection == variant {
@@ -606,11 +606,11 @@ struct PositionGrid: View {
                         selection = anchor.rawValue
                     } label: {
                         RoundedRectangle(cornerRadius: 5)
-                            .fill(isSelected(anchor) ? Color.brand.opacity(0.28) : Color.white.opacity(0.06))
+                            .fill(isSelected(anchor) ? Theme.accent.opacity(0.28) : Theme.overlay)
                             .frame(height: 28)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 5)
-                                    .stroke(isSelected(anchor) ? Color.brand.opacity(0.5) : Color.white.opacity(0.06))
+                                    .stroke(isSelected(anchor) ? Theme.accent.opacity(0.5) : Theme.overlay)
                             }
                     }
                 }

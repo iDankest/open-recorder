@@ -48,7 +48,7 @@ struct SourceSelectorWindowView: View {
             }
         }
         .background(SourceSelectorWindowSizer(size: CGSize(width: SourceSelectorWindowMetrics.width, height: sourceSelector.state.preferredHeight)))
-        .background(Color.studioBackground.ignoresSafeArea())
+        .background(Theme.appBg.ignoresSafeArea())
         .onPreferenceChange(SourceSelectorCardHeightPreferenceKey.self) { cardHeight in
             sourceSelector.send(.heightMeasured(cardHeight))
         }
@@ -167,7 +167,7 @@ struct SourceSelectorCard: View {
                     .padding(.vertical, 5)
                     .overlay {
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.studioBorder)
+                            .stroke(Theme.border)
                     }
             }
             .padding(16)
@@ -190,7 +190,7 @@ struct SourceSelectorCard: View {
             .padding(.bottom, 16)
 
             Rectangle()
-                .fill(Color.studioBorder)
+                .fill(Theme.border)
                 .frame(height: 1)
 
             HStack {
@@ -211,7 +211,7 @@ struct SourceSelectorCard: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                         .frame(height: 34)
                         .padding(.horizontal, 12)
-                        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+                        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
                 }
                 .foregroundStyle(.secondary)
 
@@ -224,18 +224,18 @@ struct SourceSelectorCard: View {
                         .font(.system(size: 13, weight: .semibold))
                         .frame(height: 34)
                         .padding(.horizontal, 14)
-                        .background(canShareSource ? Color.brand : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                        .background(canShareSource ? Theme.accent : Theme.border, in: RoundedRectangle(cornerRadius: 8))
                         .foregroundStyle(canShareSource ? Color.white : Color.secondary)
                 }
                 .disabled(!canShareSource || onShare == nil)
             }
             .padding(16)
         }
-        .background(Color.studioPanel.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay {
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.studioBorder)
+                .stroke(Theme.border)
         }
         .shadow(color: Color.black.opacity(0.35), radius: 26, y: 18)
     }
@@ -273,7 +273,7 @@ struct SourceTabs: View {
             }
         }
         .padding(4)
-        .background(Color.studioControl, in: RoundedRectangle(cornerRadius: 9))
+        .background(Theme.surfaceControl, in: RoundedRectangle(cornerRadius: 9))
     }
 }
 
@@ -293,7 +293,7 @@ struct StudioSegmentedTabButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: 32)
             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-            .background(isSelected ? Color.white.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 7))
+            .background(isSelected ? Theme.border : Color.clear, in: RoundedRectangle(cornerRadius: 7))
         }
     }
 }
@@ -368,11 +368,11 @@ struct SourceTile: View {
             labels
         }
         .padding(8)
-        .background(Color.studioCard.opacity(0.8), in: RoundedRectangle(cornerRadius: 9))
+        .background(Theme.surfaceRaised.opacity(0.8), in: RoundedRectangle(cornerRadius: 9))
         .clipShape(RoundedRectangle(cornerRadius: 9))
         .overlay {
             RoundedRectangle(cornerRadius: 9)
-                .stroke(isSelected ? Color.brand : Color.studioBorder, lineWidth: isSelected ? 2 : 1)
+                .stroke(isSelected ? Theme.accent : Theme.border, lineWidth: isSelected ? 2 : 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -391,11 +391,11 @@ struct SourceTile: View {
         .padding(4)
         .aspectRatio(1, contentMode: .fit)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.studioCard.opacity(0.8), in: RoundedRectangle(cornerRadius: 9))
+        .background(Theme.surfaceRaised.opacity(0.8), in: RoundedRectangle(cornerRadius: 9))
         .clipShape(RoundedRectangle(cornerRadius: 9))
         .overlay {
             RoundedRectangle(cornerRadius: 9)
-                .stroke(isSelected ? Color.brand : Color.studioBorder, lineWidth: isSelected ? 2 : 1)
+                .stroke(isSelected ? Theme.accent : Theme.border, lineWidth: isSelected ? 2 : 1)
         }
     }
 
@@ -412,7 +412,7 @@ struct SourceTile: View {
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
-                        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
+                        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 5))
                 }
             }
             Text(source.subtitle)
@@ -440,7 +440,7 @@ struct SourceThumbnailPreview: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.white.opacity(0.045))
+                .fill(Theme.overlay)
 
             if let thumbnail = source.thumbnailData,
                let image = NSImage(data: thumbnail) {
@@ -461,7 +461,7 @@ struct SourceThumbnailPreview: View {
                         Image(systemName: "checkmark")
                             .font(.system(size: 10, weight: .bold))
                             .frame(width: 18, height: 18)
-                            .background(Color.brand, in: Circle())
+                            .background(Theme.accent, in: Circle())
                             .foregroundStyle(.white)
                     }
                     Spacer()
@@ -474,7 +474,7 @@ struct SourceThumbnailPreview: View {
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(Theme.border, lineWidth: 1)
         }
     }
 
@@ -498,7 +498,7 @@ struct SourceEmptyState: View {
                 .font(.system(size: 28))
                 .foregroundStyle(.secondary)
                 .frame(width: 64, height: 64)
-                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 14))
+                .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 14))
             Text(sourceTab == .area ? "Draw a capture area" : "No sources available")
                 .font(.system(size: 15, weight: .semibold))
             Text(sourceTab == .area ? "Select the part of the screen you want to capture." : "Try a different tab or make sure the source is visible.")
@@ -512,7 +512,7 @@ struct SourceEmptyState: View {
                         .font(.system(size: 12, weight: .semibold))
                         .frame(height: 34)
                         .padding(.horizontal, 12)
-                        .background(Color.brand, in: RoundedRectangle(cornerRadius: 8))
+                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8))
                         .foregroundStyle(.white)
                 }
                 .padding(.top, 4)
@@ -521,7 +521,7 @@ struct SourceEmptyState: View {
         .frame(maxWidth: .infinity, minHeight: 210)
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.studioBorder, style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                .stroke(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
         }
     }
 }
