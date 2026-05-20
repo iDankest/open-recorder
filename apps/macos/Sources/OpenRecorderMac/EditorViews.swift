@@ -298,7 +298,7 @@ struct VideoEditorStudioView: View {
                 editor.send(.sheetDismissed(exportIsBusy: videoExport.state.phase.isBusy))
             }
         )
-        .frame(width: 420)
+        .frame(width: 460)
         .interactiveDismissDisabled(videoExport.state.phase.isBusy)
     }
 

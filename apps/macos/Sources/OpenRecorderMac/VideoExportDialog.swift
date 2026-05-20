@@ -20,8 +20,9 @@ struct VideoExportDialog: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 18) {
             header
+            exportSummaryCard
 
             switch phase {
             case .exporting, .saving:
@@ -34,8 +35,21 @@ struct VideoExportDialog: View {
                 optionsContent
             }
         }
-        .padding(20)
-        .background(Theme.surface)
+        .padding(22)
+        .background {
+            ZStack {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                Rectangle()
+                    .fill(Theme.surface.opacity(0.96))
+                LinearGradient(
+                    colors: [Color.white.opacity(0.055), Color.clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+        .animation(.snappy(duration: 0.20), value: phase)
     }
 
     private var header: some View {
@@ -48,13 +62,46 @@ struct VideoExportDialog: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(headerTitle)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                 Text(headerSubtitle)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
 
             Spacer(minLength: 0)
+        }
+    }
+
+    private var exportSummaryCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "film.stack")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 38, height: 38)
+                .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Movie export")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("Optimized for screen recordings")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 6) {
+                ExportSummaryMetric(title: "Size", value: resolution.title)
+                ExportSummaryMetric(title: "Rate", value: frameRate.title)
+                ExportSummaryMetric(title: "Type", value: format.title)
+            }
+        }
+        .padding(11)
+        .background(Theme.overlay.opacity(0.82), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .stroke(Theme.borderSubtle, lineWidth: 1)
         }
     }
 
@@ -91,10 +138,10 @@ struct VideoExportDialog: View {
                     .tint(Theme.accent)
             }
             .padding(12)
-            .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 10))
+            .background(Theme.surfaceRaised.opacity(0.86), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Theme.border)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Theme.borderSubtle)
             }
 
             if phase == .exporting {
@@ -169,6 +216,7 @@ struct VideoExportDialog: View {
     private var settingsPanel: some View {
         VStack(spacing: 0) {
             ExportPickerSettingRow(
+                symbolName: "rectangle.arrowtriangle.2.inward",
                 title: "Resolution",
                 detail: resolution.detail,
                 selection: $resolution,
@@ -178,6 +226,7 @@ struct VideoExportDialog: View {
             )
             ExportDivider()
             ExportPickerSettingRow(
+                symbolName: "speedometer",
                 title: "Frame Rate",
                 detail: frameRate.detail,
                 selection: $frameRate,
@@ -187,15 +236,16 @@ struct VideoExportDialog: View {
             )
             ExportDivider()
             ExportStaticSettingRow(
+                symbolName: "doc.badge.gearshape",
                 title: "Format",
                 detail: "QuickTime movie (.mov)",
                 value: format.title
             )
         }
-        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 10))
+        .background(Theme.surfaceRaised.opacity(0.82), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Theme.border)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .stroke(Theme.borderStrong.opacity(0.56))
         }
     }
 
@@ -297,7 +347,33 @@ enum VideoExportProgressPresentation {
     }
 }
 
+private struct ExportSummaryMetric: View {
+    var title: String
+    var value: String
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(title.uppercased())
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 10, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(minWidth: 48)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Theme.borderSubtle, lineWidth: 1)
+        }
+    }
+}
+
 private struct ExportPickerSettingRow<Option: Hashable & Identifiable>: View {
+    var symbolName: String
     var title: String
     var detail: String
     @Binding var selection: Option
@@ -307,6 +383,12 @@ private struct ExportPickerSettingRow<Option: Hashable & Identifiable>: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
+            Image(systemName: symbolName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 30, height: 30)
+                .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
@@ -328,20 +410,27 @@ private struct ExportPickerSettingRow<Option: Hashable & Identifiable>: View {
             .pickerStyle(.menu)
             .controlSize(.regular)
             .disabled(isDisabled)
-            .frame(width: 118, alignment: .trailing)
+            .frame(width: 122, alignment: .trailing)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 12)
     }
 }
 
 private struct ExportStaticSettingRow: View {
+    var symbolName: String
     var title: String
     var detail: String
     var value: String
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
+            Image(systemName: symbolName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 30, height: 30)
+                .background(Theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
@@ -358,14 +447,14 @@ private struct ExportStaticSettingRow: View {
                 .frame(minWidth: 58)
                 .frame(height: 28)
                 .padding(.horizontal, 10)
-                .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
+                .background(Theme.overlayStrong.opacity(0.82), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 7)
-                        .stroke(Theme.border)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Theme.borderSubtle)
                 }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 12)
     }
 }
 
@@ -378,7 +467,7 @@ private struct ExportDivider: View {
     }
 }
 
-private enum ExportDialogButtonKind {
+private enum ExportDialogButtonKind: Equatable {
     case primary
     case secondary
     case destructive
@@ -409,6 +498,7 @@ private enum ExportDialogButtonKind {
 }
 
 private struct ExportDialogButton: View {
+    @State private var isHovering = false
     var title: String
     var systemImage: String?
     var kind: ExportDialogButtonKind
@@ -445,18 +535,36 @@ private struct ExportDialogButton: View {
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(kind.foreground)
             .frame(minWidth: minWidth)
-            .frame(height: 38)
+            .frame(height: 40)
             .padding(.horizontal, 12)
-            .background(kind.background, in: RoundedRectangle(cornerRadius: 8))
+            .background {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(kind.background)
+                    .overlay {
+                        LinearGradient(
+                            colors: [Color.white.opacity(kind == .primary ? 0.16 : 0.06), Color.clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    }
+            }
             .overlay {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .stroke(kind.border)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .scaleEffect(isHovering && !isDisabled ? 1.015 : 1)
+            .brightness(isHovering && !isDisabled ? 0.035 : 0)
+            .shadow(color: kind == .primary ? Theme.accent.opacity(0.22) : Color.clear, radius: 10, y: 4)
+            .animation(.snappy(duration: 0.16), value: isHovering)
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
         .opacity(isDisabled ? 0.55 : 1)
+        .onHover { hovering in
+            isHovering = hovering
+        }
     }
 }
 
@@ -470,16 +578,18 @@ private struct ExportMessageRow: View {
             Image(systemName: symbolName)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(tint)
+                .frame(width: 24, height: 24)
+                .background(tint.opacity(0.12), in: Circle())
             Text(message)
                 .font(.system(size: 12))
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(10)
-        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(11)
+        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(tint.opacity(0.24))
         }
     }

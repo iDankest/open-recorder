@@ -149,19 +149,25 @@ struct SourceTypeButton: View {
 
     var body: some View {
         StudioButton(hitTarget: .capsule, help: sourceType.title, action: action) {
-            Label(sourceType.title, systemImage: sourceType.symbolName)
-                .font(.system(size: 12, weight: .semibold))
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(minWidth: 94)
-                .frame(height: 38)
-                .padding(.horizontal, 12)
-                .foregroundStyle(Color.white.opacity(0.76))
-                .background(Theme.overlay, in: Capsule())
-                .overlay {
-                    Capsule()
-                        .stroke(Theme.border, lineWidth: 1)
-                }
+            HStack(spacing: 8) {
+                Image(systemName: sourceType.symbolName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 22, height: 22)
+                    .background(Color.white.opacity(0.055), in: Circle())
+                Text(sourceType.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(minWidth: 104)
+            .frame(height: 40)
+            .padding(.horizontal, 13)
+            .foregroundStyle(Color.white.opacity(0.78))
+            .background(Theme.overlayStrong, in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(Theme.borderStrong.opacity(0.68), lineWidth: 1)
+            }
         }
     }
 }

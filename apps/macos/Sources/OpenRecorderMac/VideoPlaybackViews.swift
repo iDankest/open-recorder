@@ -88,8 +88,8 @@ struct VideoPreviewPanel: View {
             if videoURL != nil {
                 previewControlRow
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 12)
-                    .padding(.bottom, 8)
+                    .padding(.top, 10)
+                    .padding(.bottom, 7)
             }
 
             ZStack {
@@ -132,7 +132,16 @@ struct VideoPreviewPanel: View {
     private var previewControlRow: some View {
         HStack(spacing: 8) {
             cropButton
+            Rectangle()
+                .fill(Theme.borderSubtle)
+                .frame(width: 1, height: 20)
             previewAspectMenu
+        }
+        .padding(4)
+        .background(Theme.scrim.opacity(0.72), in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(Theme.borderSubtle, lineWidth: 1)
         }
     }
 
@@ -141,8 +150,9 @@ struct VideoPreviewPanel: View {
             Label("Crop", systemImage: "crop")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.primary.opacity(0.86))
-                .padding(.horizontal, 12)
-                .frame(height: 32)
+                .padding(.horizontal, 11)
+                .frame(height: 30)
+                .background(Color.white.opacity(0.001), in: Capsule())
         }
     }
 
@@ -151,6 +161,8 @@ struct VideoPreviewPanel: View {
             isPreviewAspectDropdownPresented.toggle()
         } label: {
             HStack(spacing: 7) {
+                Image(systemName: "rectangle.inset.filled")
+                    .font(.system(size: 11, weight: .semibold))
                 Text(previewAspectPreset.title)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
@@ -158,8 +170,9 @@ struct VideoPreviewPanel: View {
             }
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(Color.primary.opacity(0.86))
-            .padding(.horizontal, 12)
-            .frame(height: 32)
+            .padding(.horizontal, 11)
+            .frame(height: 30)
+            .background(Color.white.opacity(0.001), in: Capsule())
         }
         .popover(isPresented: $isPreviewAspectDropdownPresented, arrowEdge: .top) {
             PreviewAspectDropdown(
@@ -255,7 +268,12 @@ struct VideoPreviewPanel: View {
                 .font(.system(size: 11, weight: .semibold))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
-                .background(Color.black.opacity(0.58), in: RoundedRectangle(cornerRadius: 9))
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(Color.black.opacity(0.38), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                }
                 .foregroundStyle(Color.white)
                 .padding(12)
         }

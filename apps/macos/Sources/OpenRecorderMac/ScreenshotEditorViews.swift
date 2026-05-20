@@ -63,7 +63,7 @@ struct ScreenshotEditorStudioView: View {
                     editor.copyComposedPNG(image: image)
                 }
             )
-            .frame(width: 360)
+            .frame(width: 420)
         }
         .onChange(of: exportRequest?.id) { _, requestID in
             guard requestID != nil, isScreenshotExportRequestTarget else { return }
@@ -150,48 +150,30 @@ struct ScreenshotExportDialog: View {
     var onCopy: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
+            exportHeader
+
             HStack(spacing: 10) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Export PNG")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text("Save or copy the composed screenshot.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            VStack(spacing: 8) {
-                StudioButton(hitTarget: .rounded(8)) {
+                ScreenshotExportActionCard(
+                    title: "Save",
+                    subtitle: "Choose a folder",
+                    symbolName: "square.and.arrow.down",
+                    isPrimary: true
+                ) {
                     dismiss()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                         onSave()
                     }
-                } label: {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .frame(height: 36)
-                        .padding(.horizontal, 12)
-                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8))
-                        .foregroundStyle(Color.white)
                 }
 
-                StudioButton(hitTarget: .rounded(8)) {
+                ScreenshotExportActionCard(
+                    title: "Copy",
+                    subtitle: "Put PNG on clipboard",
+                    symbolName: "doc.on.doc",
+                    isPrimary: false
+                ) {
                     onCopy()
                     dismiss()
-                } label: {
-                    Label("Copy", systemImage: "doc.on.doc")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .frame(height: 36)
-                        .padding(.horizontal, 12)
-                        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
-                        .foregroundStyle(Color.primary)
                 }
             }
 
@@ -202,10 +184,94 @@ struct ScreenshotExportDialog: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 28)
             }
         }
-        .padding(18)
-        .background(Theme.surface)
+        .padding(22)
+        .background {
+            ZStack {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                Rectangle()
+                    .fill(Theme.surface.opacity(0.96))
+                LinearGradient(
+                    colors: [Color.white.opacity(0.055), Color.clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+    }
+
+    private var exportHeader: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "photo.badge.arrow.down")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 38, height: 38)
+                .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Export PNG")
+                    .font(.system(size: 17, weight: .semibold))
+                Text("Save the composed image or copy it for sharing.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+private struct ScreenshotExportActionCard: View {
+    var title: String
+    var subtitle: String
+    var symbolName: String
+    var isPrimary: Bool
+    var action: () -> Void
+
+    var body: some View {
+        StudioButton(hitTarget: .rounded(12), action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                Image(systemName: symbolName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 30, height: 30)
+                    .foregroundStyle(isPrimary ? Color.white : Theme.accent)
+                    .background(isPrimary ? Color.white.opacity(0.16) : Theme.accent.opacity(0.11), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(subtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(isPrimary ? Color.white.opacity(0.74) : .secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 102)
+            .padding(.horizontal, 13)
+            .foregroundStyle(isPrimary ? Color.white : Color.primary)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isPrimary ? Theme.accent : Theme.overlayStrong.opacity(0.72))
+                    .overlay {
+                        LinearGradient(
+                            colors: [Color.white.opacity(isPrimary ? 0.18 : 0.06), Color.clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isPrimary ? Color.white.opacity(0.20) : Theme.borderSubtle, lineWidth: 1)
+            }
+            .shadow(color: isPrimary ? Theme.accent.opacity(0.24) : Color.clear, radius: 10, y: 4)
+        }
     }
 }
 

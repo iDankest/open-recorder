@@ -49,17 +49,19 @@ struct SettingsInspector: View {
         VStack(spacing: 8) {
             ForEach(InspectorTab.allCases) { tab in
                 InspectorRailButton(tab: tab, isActive: activeTab == tab) {
-                    activeTab = tab
+                    withAnimation(.snappy(duration: 0.18)) {
+                        activeTab = tab
+                    }
                 }
             }
         }
-        .frame(width: 56)
+        .frame(width: 54)
         .frame(maxHeight: .infinity, alignment: .top)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.025))
+        .background(Color.white.opacity(0.022))
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(Theme.border)
+                .fill(Theme.borderStrong.opacity(0.52))
                 .frame(width: 1)
         }
     }
@@ -73,9 +75,10 @@ struct SettingsInspector: View {
                 }
                 .padding(12)
             }
+            .scrollIndicators(.visible)
 
             Rectangle()
-                .fill(Theme.border)
+                .fill(Theme.borderStrong.opacity(0.52))
                 .frame(height: 1)
 
             inspectorFooter
@@ -92,27 +95,20 @@ struct SettingsInspector: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(activeTab.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                 Text(activeTab.subtitle)
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
-
-            Text(activeTab.id)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 5))
         }
-        .padding(10)
-        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
+        .padding(11)
+        .background(Theme.overlayStrong.opacity(0.72), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Theme.overlay)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Theme.borderSubtle, lineWidth: 1)
         }
     }
 
@@ -133,41 +129,55 @@ struct SettingsInspector: View {
     private var tabContent: some View {
         switch activeTab {
         case .appearance:
-            InspectorSlider(title: "Shadow", valueText: "\(Int(shadow * 100))%", value: $shadow, range: 0...1, step: 0.01)
-            InspectorSlider(title: "Roundness", valueText: "\(Int(borderRadius))px", value: $borderRadius, range: 0...25, step: 0.5)
-            InspectorSlider(title: "Padding", valueText: "\(Int(padding))%", value: $padding, range: 0...100, step: 1)
-            InspectorSlider(title: "Inset", valueText: "\(Int(inset.rounded()))", value: $inset, range: 0...100, step: 1)
-            if inset > 0 {
-                InsetColorPicker(color: $insetColor)
-                InspectorSlider(title: "Inset Opacity", valueText: String(format: "%.2f", insetOpacity), value: $insetOpacity, range: 0...1, step: 0.01)
-                InsetBalancePicker(balance: $insetBalance)
+            InspectorGroup(title: "Frame", symbolName: "rectangle.on.rectangle") {
+                InspectorSlider(title: "Shadow", valueText: "\(Int(shadow * 100))%", value: $shadow, range: 0...1, step: 0.01)
+                InspectorSlider(title: "Roundness", valueText: "\(Int(borderRadius))px", value: $borderRadius, range: 0...25, step: 0.5)
+                InspectorSlider(title: "Padding", valueText: "\(Int(padding))%", value: $padding, range: 0...100, step: 1)
             }
-            InspectorSlider(title: "Background Blur", valueText: String(format: "%.1fpx", backgroundBlur), value: $backgroundBlur, range: 0...8, step: 0.25)
+            InspectorGroup(title: "Backdrop", symbolName: "photo.on.rectangle.angled") {
+                InspectorSlider(title: "Inset", valueText: "\(Int(inset.rounded()))", value: $inset, range: 0...100, step: 1)
+                InspectorSlider(title: "Background Blur", valueText: String(format: "%.1fpx", backgroundBlur), value: $backgroundBlur, range: 0...8, step: 0.25)
+            }
+            if inset > 0 {
+                InspectorGroup(title: "Inset Styling", symbolName: "square.inset.filled") {
+                    InsetColorPicker(color: $insetColor)
+                    InspectorSlider(title: "Inset Opacity", valueText: String(format: "%.2f", insetOpacity), value: $insetOpacity, range: 0...1, step: 0.01)
+                    InsetBalancePicker(balance: $insetBalance)
+                }
+            }
             BackgroundPickerView(selection: $background)
         case .cursor:
-            InspectorSwitch(title: "Show Cursor", isOn: $showCursor)
-            CursorStylePicker(selection: $cursorStyle, variant: $cursorVariant)
-            CursorVariantPicker(style: cursorStyle, selection: $cursorVariant)
-            InspectorSwitch(title: "Loop Cursor", isOn: $loopCursor)
-            InspectorSlider(title: "Size", valueText: String(format: "%.2fx", cursorSize), value: $cursorSize, range: 1...8, step: 0.05)
-            InspectorSlider(title: "Smoothing", valueText: String(format: "%.2f", cursorSmoothing), value: $cursorSmoothing, range: 0...2, step: 0.01)
-        case .camera:
-            InspectorSwitch(title: "Facecam", isOn: $facecamEnabled, isInteractive: hasRecordedCamera)
-                .disabled(!hasRecordedCamera)
-                .opacity(hasRecordedCamera ? 1 : 0.45)
-            VStack(alignment: .leading, spacing: 16) {
-                InspectorSlider(title: "Facecam Size", valueText: "\(Int(facecamSize.rounded()))%", value: $facecamSize, range: 12...40, step: 1)
-                InspectorSlider(title: "Border Width", valueText: "\(Int(facecamBorderWidth.rounded()))px", value: $facecamBorderWidth, range: 0...16, step: 1)
-                PositionGrid(selection: $facecamAnchor)
+            InspectorGroup(title: "Cursor", symbolName: "cursorarrow") {
+                InspectorSwitch(title: "Show Cursor", isOn: $showCursor)
+                CursorStylePicker(selection: $cursorStyle, variant: $cursorVariant)
+                CursorVariantPicker(style: cursorStyle, selection: $cursorVariant)
             }
-            .disabled(!hasRecordedCamera || !facecamEnabled)
-            .opacity(hasRecordedCamera && facecamEnabled ? 1 : 0.45)
+            InspectorGroup(title: "Motion", symbolName: "point.3.connected.trianglepath.dotted") {
+                InspectorSwitch(title: "Loop Cursor", isOn: $loopCursor)
+                InspectorSlider(title: "Size", valueText: String(format: "%.2fx", cursorSize), value: $cursorSize, range: 1...8, step: 0.05)
+                InspectorSlider(title: "Smoothing", valueText: String(format: "%.2f", cursorSmoothing), value: $cursorSmoothing, range: 0...2, step: 0.01)
+            }
+        case .camera:
+            InspectorGroup(title: "Facecam", symbolName: "camera") {
+                InspectorSwitch(title: "Facecam", isOn: $facecamEnabled, isInteractive: hasRecordedCamera)
+                    .disabled(!hasRecordedCamera)
+                    .opacity(hasRecordedCamera ? 1 : 0.45)
+                VStack(alignment: .leading, spacing: 15) {
+                    InspectorSlider(title: "Facecam Size", valueText: "\(Int(facecamSize.rounded()))%", value: $facecamSize, range: 12...40, step: 1)
+                    InspectorSlider(title: "Border Width", valueText: "\(Int(facecamBorderWidth.rounded()))px", value: $facecamBorderWidth, range: 0...16, step: 1)
+                    PositionGrid(selection: $facecamAnchor)
+                }
+                .disabled(!hasRecordedCamera || !facecamEnabled)
+                .opacity(hasRecordedCamera && facecamEnabled ? 1 : 0.45)
+            }
             if let path = recordingSession?.facecamVideoPath {
                 SessionAssetRow(title: "Facecam File", path: path)
             }
         case .audio:
-            InspectorSwitch(title: "Mute Preview", isOn: .constant(false), isInteractive: false)
-            InspectorSlider(title: "Volume", valueText: "100%", value: .constant(1), range: 0...1, step: 0.01)
+            InspectorGroup(title: "Preview", symbolName: "speaker.wave.2") {
+                InspectorSwitch(title: "Mute Preview", isOn: .constant(false), isInteractive: false)
+                InspectorSlider(title: "Volume", valueText: "100%", value: .constant(1), range: 0...1, step: 0.01)
+            }
             if let sourceName = recordingSession?.sourceName {
                 SessionAssetRow(title: "Source", path: sourceName)
             }
@@ -206,10 +216,18 @@ struct InspectorRailButton: View {
                 .font(.system(size: 15, weight: .semibold))
                 .frame(width: 40, height: 40)
                 .foregroundStyle(isActive ? Theme.accent : Color.secondary)
-                .background(isActive ? Theme.accent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 9))
+                .background(isActive ? Theme.accent.opacity(0.16) : Color.white.opacity(0.001), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 9)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(isActive ? Theme.accent.opacity(0.24) : Color.clear, lineWidth: 1)
+                }
+                .overlay(alignment: .leading) {
+                    if isActive {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Theme.accent)
+                            .frame(width: 3, height: 18)
+                            .offset(x: -1)
+                    }
                 }
         }
     }
@@ -227,7 +245,11 @@ struct InspectorFooterButton: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
                 .foregroundStyle(.secondary)
-                .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 7))
+                .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Theme.borderSubtle, lineWidth: 1)
+                }
         }
     }
 }
@@ -280,15 +302,15 @@ struct InspectorGroup<Content: View>: View {
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
 
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 15) {
                 content
             }
         }
-        .padding(10)
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+        .padding(11)
+        .background(Color.white.opacity(0.038), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Theme.overlay)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Theme.borderSubtle, lineWidth: 1)
         }
     }
 }
@@ -305,12 +327,15 @@ struct InspectorSlider: View {
         VStack(alignment: .leading, spacing: 7) {
             HStack {
                 Text(title)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text(valueText)
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.secondary.opacity(0.78))
+                    .foregroundStyle(Color.secondary.opacity(0.86))
+                    .padding(.horizontal, 6)
+                    .frame(height: 18)
+                    .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
             }
             ElasticSlider(value: $value, range: range, step: step, onEditingChanged: onEditingChanged)
                 .accessibilityLabel(title)
@@ -580,7 +605,7 @@ struct InspectorSwitch: View {
             Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
-                .allowsHitTesting(!isInteractive)
+                .allowsHitTesting(isInteractive)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 3)

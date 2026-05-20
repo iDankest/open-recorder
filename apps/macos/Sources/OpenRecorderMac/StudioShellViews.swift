@@ -144,10 +144,10 @@ struct StudioNavBar: View {
             }
         }
         .padding(4)
-        .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 9))
+        .background(Theme.overlayStrong.opacity(0.82), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 9)
-                .stroke(Theme.border.opacity(0.8), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Theme.borderStrong.opacity(0.62), lineWidth: 1)
         }
     }
 
@@ -180,7 +180,21 @@ struct StudioNavButton: View {
             .frame(height: 30)
             .padding(.horizontal, 10)
             .foregroundStyle(isActive ? Color.white : Color.secondary)
-            .background(isActive ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 7))
+            .background {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(isActive ? Theme.accent : Color.clear)
+                    .overlay {
+                        if isActive {
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.18), Color.clear],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        }
+                    }
+            }
+            .shadow(color: isActive ? Theme.accent.opacity(0.28) : Color.clear, radius: 10, y: 4)
         }
     }
 }
@@ -196,7 +210,7 @@ struct StudioIconNavButton: View {
                 .font(.system(size: 14, weight: .semibold))
                 .frame(width: 30, height: 30)
                 .foregroundStyle(Color.secondary)
-                .background(Color.clear, in: RoundedRectangle(cornerRadius: 7))
+                .background(Color.white.opacity(0.001), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
     }
 }
@@ -213,7 +227,11 @@ struct EditorHistoryButton: View {
                 .font(.system(size: 12, weight: .semibold))
                 .frame(width: 28, height: 28)
                 .foregroundStyle(isEnabled ? Color.primary.opacity(0.86) : Color.secondary.opacity(0.38))
-                .background(isEnabled ? Theme.overlay : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                .background(isEnabled ? Theme.overlayStrong.opacity(0.82) : Color.clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(isEnabled ? Theme.borderSubtle : Color.clear, lineWidth: 1)
+                }
         }
         .disabled(!isEnabled)
         .accessibilityLabel(title)
@@ -246,12 +264,24 @@ struct StudioTitleBar: View {
                 exportButton
             }
         }
-        .frame(height: 48)
+        .frame(height: 52)
         .padding(.horizontal, 12)
-        .background(Theme.surface.opacity(0.95))
+        .background {
+            ZStack {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                Rectangle()
+                    .fill(Theme.surface.opacity(0.90))
+                LinearGradient(
+                    colors: [Color.white.opacity(0.045), Color.clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Theme.border)
+                .fill(Theme.borderStrong.opacity(0.56))
                 .frame(height: 1)
         }
         .simultaneousGesture(
@@ -273,10 +303,10 @@ struct StudioTitleBar: View {
                 }
             }
             .padding(3)
-            .background(Theme.overlay, in: RoundedRectangle(cornerRadius: 8))
+            .background(Theme.overlay.opacity(0.88), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Theme.border.opacity(0.8), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(Theme.borderSubtle, lineWidth: 1)
             }
         }
     }
@@ -292,8 +322,13 @@ struct StudioTitleBar: View {
                     .labelStyle(.titleAndIcon)
                     .padding(.horizontal, 12)
                     .frame(height: 32)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 7))
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .foregroundStyle(Color.white)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    }
+                    .shadow(color: Theme.accent.opacity(0.24), radius: 10, y: 4)
                 }
         } else if workspace.state.selectedSection == .editor, screenshotURL != nil {
             StudioButton(hitTarget: .rounded(7)) {
@@ -304,8 +339,13 @@ struct StudioTitleBar: View {
                     .labelStyle(.titleAndIcon)
                     .padding(.horizontal, 12)
                     .frame(height: 32)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 7))
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .foregroundStyle(Color.white)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    }
+                    .shadow(color: Theme.accent.opacity(0.24), radius: 10, y: 4)
             }
         }
     }

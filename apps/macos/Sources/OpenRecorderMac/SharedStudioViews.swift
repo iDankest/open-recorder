@@ -65,10 +65,25 @@ extension View {
     }
 
     func studioEditorPaneChrome() -> some View {
-        background(Theme.surface.opacity(0.86))
+        clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Theme.surface.opacity(0.88))
+                    .overlay {
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.055),
+                                Color.white.opacity(0.012),
+                                Color.black.opacity(0.045)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+            }
             .overlay {
-                Rectangle()
-                    .stroke(Theme.border)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Theme.borderStrong.opacity(0.72), lineWidth: 1)
             }
     }
 
@@ -114,6 +129,7 @@ struct StudioSplitPane<Primary: View, Secondary: View>: View {
     var minPrimarySize: CGFloat
     var minSecondarySize: CGFloat
     var maxSecondarySize: CGFloat
+    var spacing: CGFloat
     private let primary: Primary
     private let secondary: Secondary
 
@@ -123,6 +139,7 @@ struct StudioSplitPane<Primary: View, Secondary: View>: View {
         minPrimarySize: CGFloat,
         minSecondarySize: CGFloat,
         maxSecondarySize: CGFloat,
+        spacing: CGFloat = 12,
         @ViewBuilder primary: () -> Primary,
         @ViewBuilder secondary: () -> Secondary
     ) {
@@ -131,6 +148,7 @@ struct StudioSplitPane<Primary: View, Secondary: View>: View {
         self.minPrimarySize = minPrimarySize
         self.minSecondarySize = minSecondarySize
         self.maxSecondarySize = maxSecondarySize
+        self.spacing = spacing
         self.primary = primary()
         self.secondary = secondary()
     }
@@ -139,10 +157,11 @@ struct StudioSplitPane<Primary: View, Secondary: View>: View {
         GeometryReader { proxy in
             let totalSize = axis.length(in: proxy.size)
             let resolvedSecondarySize = clampedSecondarySize(totalSize: totalSize)
-            let resolvedPrimarySize = max(0, totalSize - resolvedSecondarySize)
+            let paneSpacing = resolvedSecondarySize > 0 ? spacing : 0
+            let resolvedPrimarySize = max(0, totalSize - resolvedSecondarySize - paneSpacing)
 
             if axis == .horizontal {
-                HStack(spacing: 0) {
+                HStack(spacing: paneSpacing) {
                     primary
                         .frame(width: resolvedPrimarySize, height: proxy.size.height)
                         .clipped()
@@ -151,7 +170,7 @@ struct StudioSplitPane<Primary: View, Secondary: View>: View {
                         .clipped()
                 }
             } else {
-                VStack(spacing: 0) {
+                VStack(spacing: paneSpacing) {
                     primary
                         .frame(width: proxy.size.width, height: resolvedPrimarySize)
                         .clipped()
@@ -186,6 +205,8 @@ struct StudioSplitPane<Primary: View, Secondary: View>: View {
 }
 
 struct StudioButton<Label: View>: View {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovering = false
     var hitTarget: StudioHitTarget
     var help: String?
     var action: () -> Void
@@ -207,8 +228,14 @@ struct StudioButton<Label: View>: View {
         let control = Button(action: action) {
             label()
                 .studioHitTarget(hitTarget)
+                .scaleEffect(isHovering && isEnabled ? 1.018 : 1)
+                .brightness(isHovering && isEnabled ? 0.035 : 0)
+                .animation(.snappy(duration: 0.16), value: isHovering)
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovering = hovering
+        }
 
         if let help {
             control.help(help)
@@ -219,6 +246,8 @@ struct StudioButton<Label: View>: View {
 }
 
 struct StudioMenu<Label: View, Content: View>: View {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovering = false
     var hitTarget: StudioHitTarget
     var help: String?
     @ViewBuilder var content: () -> Content
@@ -242,9 +271,15 @@ struct StudioMenu<Label: View, Content: View>: View {
         } label: {
             label()
                 .studioHitTarget(hitTarget)
+                .scaleEffect(isHovering && isEnabled ? 1.018 : 1)
+                .brightness(isHovering && isEnabled ? 0.035 : 0)
+                .animation(.snappy(duration: 0.16), value: isHovering)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
+        .onHover { hovering in
+            isHovering = hovering
+        }
 
         if let help {
             control.help(help)
@@ -322,35 +357,61 @@ struct HUDSurface<Content: View>: View {
 
     var body: some View {
         content
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 7)
             .background {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: isRecording
-                                ? [hudRecordingGradientTop, Theme.appBg]
-                                : [Theme.surfaceRaised, Theme.appBg],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                ZStack {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(.ultraThinMaterial)
+
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: isRecording
+                                    ? [hudRecordingGradientTop.opacity(0.96), Theme.appBg.opacity(0.94)]
+                                    : [Theme.surfaceRaised.opacity(0.94), Theme.appBg.opacity(0.96)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(isRecording ? Theme.destructive.opacity(0.28) : Theme.borderStrong, lineWidth: 1)
-                    }
+
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(isRecording ? 0.17 : 0.21),
+                                    (isRecording ? Theme.destructive : Theme.borderStrong).opacity(isRecording ? 0.30 : 0.18),
+                                    Color.black.opacity(0.20)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
             }
-            .shadow(color: Color.black.opacity(0.36), radius: 28, y: 18)
+            .shadow(color: Color.black.opacity(0.40), radius: 26, y: 18)
+            .shadow(color: Color.black.opacity(0.20), radius: 5, y: 1)
     }
 }
 
 struct DragHandle: View {
     var body: some View {
-        Image(systemName: "line.3.horizontal")
-            .font(.system(size: 14, weight: .bold))
-            .foregroundStyle(Color.white.opacity(0.35))
-            .frame(width: 28, height: 36)
-            .background(Color.white.opacity(0.001), in: Capsule())
+        VStack(spacing: 3) {
+            ForEach(0..<3, id: \.self) { _ in
+                HStack(spacing: 3) {
+                    Circle()
+                        .fill(Color.white.opacity(0.30))
+                        .frame(width: 3.5, height: 3.5)
+                    Circle()
+                        .fill(Color.white.opacity(0.22))
+                        .frame(width: 3.5, height: 3.5)
+                }
+            }
+        }
+        .frame(width: 28, height: 36)
+        .background(Color.white.opacity(0.001), in: Capsule())
+        .accessibilityLabel("Drag")
     }
 }
 
@@ -408,6 +469,11 @@ struct HUDPrimaryButton: View {
             .padding(.horizontal, 14)
             .background(isDestructive ? Theme.destructive : Theme.actionPrimary, in: Capsule())
             .foregroundStyle(isDestructive ? Theme.destructiveFg : Theme.actionPrimaryFg)
+            .overlay {
+                Capsule()
+                    .stroke(Color.white.opacity(isDestructive ? 0.18 : 0.36), lineWidth: 1)
+            }
+            .shadow(color: (isDestructive ? Theme.destructive : Theme.actionPrimary).opacity(0.22), radius: 12, y: 5)
         }
     }
 }
@@ -425,6 +491,11 @@ struct HUDPrimaryIconButton: View {
                 .frame(width: 42, height: 40)
                 .background(isDestructive ? Theme.destructive : Theme.actionPrimary, in: Circle())
                 .foregroundStyle(isDestructive ? Theme.destructiveFg : Theme.actionPrimaryFg)
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(isDestructive ? 0.18 : 0.36), lineWidth: 1)
+                }
+                .shadow(color: (isDestructive ? Theme.destructive : Theme.actionPrimary).opacity(0.22), radius: 12, y: 5)
         }
     }
 }
@@ -491,23 +562,39 @@ struct CaptureModeButton: View {
 
     var body: some View {
         StudioButton(hitTarget: .capsule, action: action) {
-            Label(title, systemImage: symbolName)
-                .font(.system(size: 12, weight: .semibold))
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(minWidth: 104)
-                .frame(height: 38)
-                .padding(.horizontal, 14)
-                .foregroundStyle(isActive ? Theme.actionPrimaryFg : Theme.fgMuted)
-                .background(isActive ? Theme.actionPrimary : Theme.overlay, in: Capsule())
-                .overlay {
-                    Capsule()
-                        .stroke(isActive ? Color.clear : Theme.border, lineWidth: 1)
-                }
+            HStack(spacing: 8) {
+                Image(systemName: symbolName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 22, height: 22)
+                    .background(isActive ? Color.black.opacity(0.08) : Color.white.opacity(0.055), in: Circle())
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(minWidth: 118)
+            .frame(height: 40)
+            .padding(.horizontal, 13)
+            .foregroundStyle(isActive ? Theme.actionPrimaryFg : Color.white.opacity(0.78))
+            .background {
+                Capsule()
+                    .fill(isActive ? Theme.actionPrimary : Theme.overlayStrong)
+                    .overlay {
+                        LinearGradient(
+                            colors: [Color.white.opacity(isActive ? 0.18 : 0.08), Color.clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .clipShape(Capsule())
+                    }
+            }
+            .overlay {
+                Capsule()
+                    .stroke(isActive ? Color.white.opacity(0.24) : Theme.borderStrong.opacity(0.68), lineWidth: 1)
+            }
         }
     }
 }
-
 enum FlowTone {
     case blue
     case green
@@ -522,7 +609,11 @@ struct FlowLabel: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            StatusDot(tone: tone)
+            Image(systemName: label.localizedCaseInsensitiveContains("screenshot") ? "camera.viewfinder" : "record.circle")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(dotColor)
+                .frame(width: 24, height: 24)
+                .background(dotColor.opacity(0.14), in: Circle())
             VStack(alignment: .leading, spacing: 1) {
                 Text(label.uppercased())
                     .font(.system(size: 9, weight: .bold))
@@ -534,9 +625,23 @@ struct FlowLabel: View {
                     .foregroundStyle(Theme.fgMuted)
             }
         }
-        .frame(width: 96, alignment: .leading)
-        .padding(.horizontal, 4)
+        .frame(width: 112, alignment: .leading)
+        .padding(.horizontal, 9)
         .frame(height: 38)
+        .background(Theme.scrim, in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(Theme.borderSubtle, lineWidth: 1)
+        }
+    }
+
+    private var dotColor: Color {
+        switch tone {
+        case .blue: Theme.statusInfo
+        case .green: Theme.statusSuccess
+        case .red: Theme.statusError
+        case .amber: Theme.statusWarning
+        }
     }
 }
 
@@ -553,9 +658,14 @@ struct CompactFlowLabel: View {
                 .truncationMode(.tail)
                 .foregroundStyle(Theme.fgMuted)
         }
-        .frame(width: 74, alignment: .leading)
-        .padding(.horizontal, 4)
+        .frame(width: 82, alignment: .leading)
+        .padding(.horizontal, 8)
         .frame(height: 38)
+        .background(Theme.scrim, in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(Theme.borderSubtle, lineWidth: 1)
+        }
     }
 }
 
@@ -589,8 +699,10 @@ struct SourceChip: View {
         HStack(spacing: 8) {
             StatusDot(tone: source == nil ? .amber : tone)
             Image(systemName: source?.kind == .window ? "macwindow" : source?.kind == .area ? "rectangle.dashed" : "display")
-                .font(.system(size: 14))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.fgMuted)
+                .frame(width: 24, height: 24)
+                .background(Color.white.opacity(0.055), in: Circle())
             Text(source?.name ?? "Choose source")
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
@@ -600,10 +712,10 @@ struct SourceChip: View {
         .padding(.horizontal, 10)
         .frame(minWidth: minWidth, maxWidth: maxWidth, alignment: .leading)
         .frame(height: 38)
-        .background(Theme.scrim, in: Capsule())
+        .background(Theme.scrim.opacity(0.92), in: Capsule())
         .overlay {
             Capsule()
-                .stroke(Theme.border, lineWidth: 1)
+                .stroke(Theme.borderStrong.opacity(0.62), lineWidth: 1)
         }
         .capsuleHitTarget()
     }
@@ -741,4 +853,3 @@ enum Theme {
     static let timelineClipBorder     = Color(red: 0.28, green: 0.62, blue: 1.0).opacity(0.88)
     static let timelineHandle         = Color(red: 0.34, green: 0.68, blue: 1.0)
 }
-
