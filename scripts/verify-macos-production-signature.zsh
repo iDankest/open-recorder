@@ -8,7 +8,7 @@ swift_binary="$bundle_dir/Contents/MacOS/OpenRecorderMac"
 frameworks_rpath="@executable_path/../Frameworks"
 
 if [[ -z "$bundle_dir" || ! -d "$bundle_dir" ]]; then
-	print -u2 -- "Usage: zsh scripts/verify-macos-signature.zsh PATH_TO_APP"
+	print -u2 -- "Usage: zsh scripts/verify-macos-production-signature.zsh PATH_TO_APP"
 	exit 2
 fi
 

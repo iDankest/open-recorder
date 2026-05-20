@@ -881,12 +881,14 @@ final class AppModelStateTests: XCTestCase {
         var openedWindows: [String] = []
         var openedEditorSession: EditorSession?
         var dismissedWindows: [String] = []
+        var didUnhideApp = false
 
         actions.install(
             openWindow: { openedWindows.append($0) },
             openEditor: { openedEditorSession = $0 },
             dismissWindow: { dismissedWindows.append($0) },
-            activateApp: {}
+            activateApp: {},
+            unhideApp: { didUnhideApp = true }
         )
         actions.perform(NativeWindowCommand(action: .showStudio, editorSession: session))
 
@@ -894,6 +896,7 @@ final class AppModelStateTests: XCTestCase {
         XCTAssertEqual(openedEditorSession, session)
         XCTAssertTrue(openedWindows.isEmpty)
         XCTAssertTrue(dismissedWindows.isEmpty)
+        XCTAssertTrue(didUnhideApp)
     }
 
     func testAppWindowActionsHideRecordingSetupDismissesCaptureWindows() {
@@ -917,12 +920,14 @@ final class AppModelStateTests: XCTestCase {
         let actions = AppWindowActions()
         var openedWindows: [String] = []
         var dismissedWindows: [String] = []
+        var didHideApp = false
 
         actions.install(
             openWindow: { openedWindows.append($0) },
             openEditor: { _ in },
             dismissWindow: { dismissedWindows.append($0) },
-            activateApp: {}
+            activateApp: {},
+            hideApp: { didHideApp = true }
         )
         actions.perform(NativeWindowCommand(action: .hideAppWindowsForCapture))
 
@@ -936,6 +941,7 @@ final class AppModelStateTests: XCTestCase {
             "studio",
             "editor"
         ])
+        XCTAssertTrue(didHideApp)
     }
 
     func testAppWindowActionsShowScreenRecordingSetupDoesNotOpenSourceSelector() {

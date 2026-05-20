@@ -151,14 +151,7 @@ final class ScreenshotEditorDriver {
     @ObservationIgnored private let autosave = ProjectAutosaveCoordinator()
     @ObservationIgnored private var setStatusMessage: (String) -> Void = { _ in }
     @ObservationIgnored private var renderPNG: (NSImage, ScreenshotEditorState) -> Data? = { image, state in
-        let renderer = ScreenshotExportRenderer(configuration: ScreenshotExportConfiguration(
-            background: state.background,
-            padding: state.padding,
-            backgroundRoundness: state.backgroundRoundness,
-            backgroundShadow: state.backgroundShadow,
-            imageRoundness: state.imageRoundness,
-            imageShadow: state.imageShadow
-        ))
+        let renderer = ScreenshotExportRenderer(configuration: ScreenshotExportConfiguration(screenshotState: state))
         return renderer.renderPNG(from: image)
     }
     @ObservationIgnored private var presentSaveURL: (String) -> URL? = { suggestedFileName in
@@ -301,7 +294,8 @@ final class ScreenshotEditorDriver {
     }
 
     func saveComposedPNG(image: NSImage?, suggestedFileName: String) {
-        guard let image, let data = renderPNG(image, state.screenshot) else {
+        let exportState = state.screenshot
+        guard let image, let data = renderPNG(image, exportState) else {
             send(.saveFailed("Failed to render screenshot."))
             return
         }
@@ -317,7 +311,8 @@ final class ScreenshotEditorDriver {
     }
 
     func copyComposedPNG(image: NSImage?) {
-        guard let image, let data = renderPNG(image, state.screenshot) else {
+        let exportState = state.screenshot
+        guard let image, let data = renderPNG(image, exportState) else {
             send(.copyFailed("Failed to render screenshot."))
             return
         }

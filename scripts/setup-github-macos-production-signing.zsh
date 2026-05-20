@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
 	cat <<'EOF'
-Usage: zsh scripts/setup-github-macos-signing.zsh [options]
+Usage: zsh scripts/setup-github-macos-production-signing.zsh [options]
 
 Exports the local Developer ID Application identity to a .p12, base64-encodes it,
 and uploads the GitHub Actions repository secrets used for macOS signing.

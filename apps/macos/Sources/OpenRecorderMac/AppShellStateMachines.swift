@@ -154,6 +154,7 @@ final class AppShellDriver {
     let settings = SettingsDriver(createZoomsAutomatically: false)
     let videoExport = VideoExportDriver()
 
+    @ObservationIgnored private var editorWorkspacesBySessionID: [UUID: EditorWorkspaceDriver] = [:]
     @ObservationIgnored private var refreshBackend: () -> Void = {}
     @ObservationIgnored private var emitWindowCommand: (NativeWindowCommand) -> Void = { _ in }
     @ObservationIgnored private var openEditorSession: (EditorSession) -> Void = { _ in }
@@ -169,6 +170,20 @@ final class AppShellDriver {
         self.emitWindowCommand = emitWindowCommand
         self.openEditorSession = openEditorSession
         self.setStatusMessage = setStatusMessage
+    }
+
+    func workspace(for editorSession: EditorSession?) -> EditorWorkspaceDriver {
+        guard let editorSession else {
+            return workspace
+        }
+
+        if let workspace = editorWorkspacesBySessionID[editorSession.id] {
+            return workspace
+        }
+
+        let workspace = EditorWorkspaceDriver()
+        editorWorkspacesBySessionID[editorSession.id] = workspace
+        return workspace
     }
 
     func send(_ event: AppShellEvent) {

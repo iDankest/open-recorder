@@ -234,6 +234,12 @@ final class AppWindowActions {
     private var openWindow: (String) -> Void = { _ in }
     private var openEditor: (EditorSession) -> Void = { _ in }
     private var dismissWindow: (String) -> Void = { _ in }
+    private var hideApp: () -> Void = {
+        NSApplication.shared.hide(nil)
+    }
+    private var unhideApp: () -> Void = {
+        NSApplication.shared.unhide(nil)
+    }
     private var activateApp: () -> Void = {
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
@@ -244,12 +250,20 @@ final class AppWindowActions {
         dismissWindow: @escaping (String) -> Void,
         activateApp: @escaping () -> Void = {
             NSApplication.shared.activate(ignoringOtherApps: true)
+        },
+        hideApp: @escaping () -> Void = {
+            NSApplication.shared.hide(nil)
+        },
+        unhideApp: @escaping () -> Void = {
+            NSApplication.shared.unhide(nil)
         }
     ) {
         self.openWindow = openWindow
         self.openEditor = openEditor
         self.dismissWindow = dismissWindow
         self.activateApp = activateApp
+        self.hideApp = hideApp
+        self.unhideApp = unhideApp
         isInstalled = true
     }
 
@@ -268,23 +282,28 @@ final class AppWindowActions {
     func perform(_ command: NativeWindowCommand) {
         switch command.action {
         case .showHUD:
+            unhideApp()
             openWindow("hud")
         case .hideHUD:
             dismissWindow("hud")
         case .showOnboarding:
+            unhideApp()
             dismissWindow("hud")
             dismissWindow("source-selector")
             openWindow("onboarding")
             activateApp()
         case .finishOnboarding:
+            unhideApp()
             dismissWindow("onboarding")
             openWindow("hud")
             activateApp()
         case .showRecordingSetup:
+            unhideApp()
             openWindow("hud")
             openWindow("source-selector")
             activateApp()
         case .showScreenRecordingSetup:
+            unhideApp()
             dismissWindow("source-selector")
             dismissWindow("area-selector")
             openWindow("hud")
@@ -294,14 +313,19 @@ final class AppWindowActions {
         case .hideAppWindowsForCapture:
             hideAppWindowsForCapture()
         case .showSourceSelector:
+            unhideApp()
             openWindow("source-selector")
         case .showMicrophoneSelector:
+            unhideApp()
             openWindow("microphone-selector")
         case .showCameraSelector:
+            unhideApp()
             openWindow("camera-selector")
         case .showAreaSelector:
+            unhideApp()
             openWindow("area-selector")
         case .showStudio:
+            unhideApp()
             if let editorSession = command.editorSession {
                 openEditor(editorSession)
             } else {
@@ -334,6 +358,7 @@ final class AppWindowActions {
         dismissCaptureWindows()
         dismissWindow("studio")
         dismissWindow("editor")
+        hideApp()
     }
 }
 
@@ -483,6 +508,7 @@ private final class OpenRecorderStatusItemController: NSObject {
             windowActions.dismiss("hud")
         } else {
             model.showHUD()
+            NSApp.unhide(nil)
             windowActions.open("hud")
             NSApp.activate(ignoringOtherApps: true)
         }
@@ -491,6 +517,7 @@ private final class OpenRecorderStatusItemController: NSObject {
     @objc private func showLastEditor() {
         guard let model, let session = model.lastEditorSession, let windowActions else { return }
         model.showEditor(for: session)
+        NSApp.unhide(nil)
         windowActions.openEditorSession(session)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -508,6 +535,7 @@ private final class OpenRecorderStatusItemController: NSObject {
         guard model.canStartNewCapture else { return }
         model.beginCapture(mode)
         model.showHUD()
+        NSApp.unhide(nil)
         windowActions.open("hud")
         NSApp.activate(ignoringOtherApps: true)
     }

@@ -35,7 +35,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  prepare-release-pr:
+  prepare-production-release-pr:
     name: Prepare release PR
     runs-on: macos-26
     steps:
@@ -56,7 +56,7 @@ jobs:
           RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
           MAKE_LATEST: ${{ github.event.inputs.make_latest }}
         run: |
-          node scripts/prepare-release-pr.mjs \
+          node scripts/prepare-production-release-pr.mjs \
             --release-type "$RELEASE_TYPE" \
             --name "$RELEASE_NAME" \
             --notes "$RELEASE_NOTES" \
@@ -84,7 +84,7 @@ jobs:
 
       - name: Verify release context resolves from native version
         run: |
-          node scripts/resolve-release-context.mjs \
+          node scripts/resolve-production-release-context.mjs \
             --event-name push \
             --before HEAD \
             --output "$RUNNER_TEMP/release-context.out"

@@ -4,7 +4,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildCommitReleaseNotes, latestSemverTag } from "./release-notes.mjs";
+import { buildCommitReleaseNotes, latestSemverTag } from "./production-release-notes.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
@@ -50,7 +50,7 @@ function parseArgs(argv) {
 				break;
 			case "-h":
 			case "--help":
-				console.log(`Usage: node scripts/prepare-release-pr.mjs --release-type patch|minor|major [options]
+				console.log(`Usage: node scripts/prepare-production-release-pr.mjs --release-type patch|minor|major [options]
 
 Prepares the next release bump inside GitHub Actions by updating the native
 Rust service version and writing .github/release-plan.json.

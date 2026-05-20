@@ -125,7 +125,11 @@ if ! binary_has_rpath "$macos_dir/OpenRecorderMac" "$frameworks_rpath"; then
 	install_name_tool -add_rpath "$frameworks_rpath" "$macos_dir/OpenRecorderMac"
 fi
 find "$bundle_dir" \( -name '._*' -o -name '.__CodeSignature' \) -delete
-OPEN_RECORDER_SIGNING_PURPOSE="$app_variant" zsh "$repo_root/scripts/sign-macos-app.zsh" "$bundle_dir"
+if [[ "$app_variant" == "development" ]]; then
+	zsh "$repo_root/scripts/sign-macos-development-app.zsh" "$bundle_dir"
+else
+	zsh "$repo_root/scripts/sign-macos-production-app.zsh" "$bundle_dir"
+fi
 
 print -- "Packaged $bundle_dir"
 

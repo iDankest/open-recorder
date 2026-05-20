@@ -10,7 +10,7 @@ function die(message) {
 }
 
 function usage() {
-	console.log(`Usage: node scripts/dispatch-release-build.mjs [options]
+	console.log(`Usage: node scripts/dispatch-production-release-build.mjs [options]
 
 Dispatches the release PR GitHub Actions workflow. That workflow computes the
 next semantic version, updates the native Swift/Rust release metadata, and opens

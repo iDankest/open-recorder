@@ -424,23 +424,28 @@ struct WindowCommandBridge: View {
 
         switch command.action {
         case .showHUD:
+            NSApp.unhide(nil)
             openWindow(id: "hud")
         case .hideHUD:
             dismissWindow(id: "hud")
         case .showOnboarding:
+            NSApp.unhide(nil)
             dismissWindow(id: "hud")
             dismissWindow(id: "source-selector")
             openWindow(id: "onboarding")
             NSApp.activate(ignoringOtherApps: true)
         case .finishOnboarding:
+            NSApp.unhide(nil)
             dismissWindow(id: "onboarding")
             openWindow(id: "hud")
             NSApp.activate(ignoringOtherApps: true)
         case .showRecordingSetup:
+            NSApp.unhide(nil)
             openWindow(id: "hud")
             openWindow(id: "source-selector")
             NSApp.activate(ignoringOtherApps: true)
         case .showScreenRecordingSetup:
+            NSApp.unhide(nil)
             dismissWindow(id: "source-selector")
             dismissWindow(id: "area-selector")
             openWindow(id: "hud")
@@ -450,14 +455,19 @@ struct WindowCommandBridge: View {
         case .hideAppWindowsForCapture:
             hideAppWindowsForCapture()
         case .showSourceSelector:
+            NSApp.unhide(nil)
             openWindow(id: "source-selector")
         case .showMicrophoneSelector:
+            NSApp.unhide(nil)
             openWindow(id: "microphone-selector")
         case .showCameraSelector:
+            NSApp.unhide(nil)
             openWindow(id: "camera-selector")
         case .showAreaSelector:
+            NSApp.unhide(nil)
             openWindow(id: "area-selector")
         case .showStudio:
+            NSApp.unhide(nil)
             if let editorSession = command.editorSession {
                 openWindow(id: "editor", value: editorSession)
             } else {
@@ -490,6 +500,7 @@ struct WindowCommandBridge: View {
         dismissCaptureWindows()
         dismissWindow(id: "studio")
         dismissWindow(id: "editor")
+        NSApp.hide(nil)
     }
 }
 

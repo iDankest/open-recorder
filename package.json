@@ -14,10 +14,10 @@
 		"package:mac": "make package-macos",
 		"test": "make test-macos",
 		"clean": "make clean-macos",
-		"release:setup-macos-signing": "zsh scripts/setup-github-macos-signing.zsh",
-		"release:dispatch": "node scripts/dispatch-release-build.mjs",
-		"release:patch": "node scripts/dispatch-release-build.mjs --release-type patch",
-		"release:minor": "node scripts/dispatch-release-build.mjs --release-type minor",
-		"release:major": "node scripts/dispatch-release-build.mjs --release-type major"
+		"release:setup-macos-signing": "zsh scripts/setup-github-macos-production-signing.zsh",
+		"release:dispatch": "node scripts/dispatch-production-release-build.mjs",
+		"release:patch": "node scripts/dispatch-production-release-build.mjs --release-type patch",
+		"release:minor": "node scripts/dispatch-production-release-build.mjs --release-type minor",
+		"release:major": "node scripts/dispatch-production-release-build.mjs --release-type major"
 	}
 }

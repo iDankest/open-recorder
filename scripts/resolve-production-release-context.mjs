@@ -4,7 +4,7 @@ import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildCommitReleaseNotes, latestSemverTag } from "./release-notes.mjs";
+import { buildCommitReleaseNotes, latestSemverTag } from "./production-release-notes.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
@@ -56,7 +56,7 @@ function parseArgs(argv) {
 				break;
 			case "-h":
 			case "--help":
-				console.log(`Usage: node scripts/resolve-release-context.mjs --event-name EVENT [options]
+				console.log(`Usage: node scripts/resolve-production-release-context.mjs --event-name EVENT [options]
 
 Resolves release metadata for .github/workflows/release.yml.
 

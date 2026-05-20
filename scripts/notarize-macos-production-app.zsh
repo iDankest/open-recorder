@@ -43,7 +43,7 @@ submit_for_notarization() {
 	done
 }
 
-[[ -n "$bundle_dir" && -d "$bundle_dir" ]] || die "Usage: zsh scripts/notarize-macos-app.zsh PATH_TO_APP"
+[[ -n "$bundle_dir" && -d "$bundle_dir" ]] || die "Usage: zsh scripts/notarize-macos-production-app.zsh PATH_TO_APP"
 [[ -n "$apple_id" ]] || die "Missing APPLE_ID secret."
 [[ -n "$apple_password" ]] || die "Missing APPLE_APP_SPECIFIC_PASSWORD secret."
 [[ -n "$apple_team_id" ]] || die "Missing APPLE_TEAM_ID secret."

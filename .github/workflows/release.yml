@@ -60,7 +60,7 @@ jobs:
           RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
           MAKE_LATEST: ${{ github.event.inputs.make_latest }}
         run: |
-          node scripts/resolve-release-context.mjs \
+          node scripts/resolve-production-release-context.mjs \
             --event-name "$EVENT_NAME" \
             --before "$BEFORE_SHA" \
             --tag-name "$TAG_NAME" \
@@ -99,13 +99,13 @@ jobs:
         run: make test-macos
 
       - name: Import macOS signing certificate
-        run: zsh scripts/import-macos-signing-certificate.zsh
+        run: zsh scripts/import-macos-production-signing-certificate.zsh
 
       - name: Package app bundle
         run: make package-macos
 
       - name: Verify Developer ID signature
-        run: zsh scripts/verify-macos-signature.zsh "release/Open Recorder.app"
+        run: zsh scripts/verify-macos-production-signature.zsh "release/Open Recorder.app"
 
       - name: Verify native architecture
         shell: bash
@@ -122,17 +122,17 @@ jobs:
           done
 
       - name: Notarize app bundle
-        run: zsh scripts/notarize-macos-app.zsh "release/Open Recorder.app"
+        run: zsh scripts/notarize-macos-production-app.zsh "release/Open Recorder.app"
 
       - name: Create release artifacts
         run: |
-          zsh scripts/create-macos-release-artifacts.zsh \
+          zsh scripts/create-macos-production-release-artifacts.zsh \
             --app "release/Open Recorder.app" \
             --output-dir release-upload \
             --artifact-stem "open-recorder-macos-${{ matrix.artifact_arch }}"
 
       - name: Sign and notarize DMG artifact
-        run: zsh scripts/notarize-macos-dmg.zsh "release-upload/open-recorder-macos-${{ matrix.artifact_arch }}.dmg"
+        run: zsh scripts/notarize-macos-production-dmg.zsh "release-upload/open-recorder-macos-${{ matrix.artifact_arch }}.dmg"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -174,7 +174,7 @@ jobs:
           path: universal-input/x64
 
       - name: Import macOS signing certificate
-        run: zsh scripts/import-macos-signing-certificate.zsh
+        run: zsh scripts/import-macos-production-signing-certificate.zsh
 
       - name: Merge app executables
         shell: bash
@@ -206,15 +206,15 @@ jobs:
           done
 
           find "$app" \( -name '._*' -o -name '.__CodeSignature' \) -delete
-          zsh scripts/sign-macos-app.zsh "$app"
-          zsh scripts/verify-macos-signature.zsh "$app"
-          zsh scripts/notarize-macos-app.zsh "$app"
+          zsh scripts/sign-macos-production-app.zsh "$app"
+          zsh scripts/verify-macos-production-signature.zsh "$app"
+          zsh scripts/notarize-macos-production-app.zsh "$app"
 
-          zsh scripts/create-macos-release-artifacts.zsh \
+          zsh scripts/create-macos-production-release-artifacts.zsh \
             --app "$app" \
             --output-dir release-upload \
             --artifact-stem open-recorder-macos-universal
-          zsh scripts/notarize-macos-dmg.zsh release-upload/open-recorder-macos-universal.dmg
+          zsh scripts/notarize-macos-production-dmg.zsh release-upload/open-recorder-macos-universal.dmg
           cp release-upload/open-recorder-macos-universal.zip release-upload/open-recorder-macos.zip
 
       - name: Sign universal update with Sparkle
@@ -337,7 +337,7 @@ jobs:
           url="https://github.com/imbhargav5/open-recorder/releases/download/${TAG_NAME}/open-recorder-macos.zip"
           min_system_version="$(/usr/bin/python3 -c 'import plistlib; print(plistlib.load(open("apps/macos/Resources/Info.plist","rb")).get("LSMinimumSystemVersion","15.0"))')"
 
-          node scripts/update-appcast.mjs \
+          node scripts/update-production-appcast.mjs \
             --version "$version" \
             --url "$url" \
             --signature "$signature" \

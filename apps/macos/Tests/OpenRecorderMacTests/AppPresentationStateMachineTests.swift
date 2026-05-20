@@ -59,6 +59,25 @@ final class AppShellStateMachineTests: XCTestCase {
         XCTAssertTrue(shell.videoExport === shell.videoExport)
     }
 
+    func testShellDriverKeepsEditorWindowWorkspacesIndependentBySession() {
+        let shell = AppShellDriver()
+        let firstSession = EditorSession(kind: .screenshot, url: URL(fileURLWithPath: "/tmp/first.png"))
+        let secondSession = EditorSession(kind: .screenshot, url: URL(fileURLWithPath: "/tmp/second.png"))
+
+        let firstWorkspace = shell.workspace(for: firstSession)
+        let secondWorkspace = shell.workspace(for: secondSession)
+
+        XCTAssertTrue(shell.workspace(for: nil) === shell.workspace)
+        XCTAssertTrue(shell.workspace(for: firstSession) === firstWorkspace)
+        XCTAssertFalse(firstWorkspace === secondWorkspace)
+
+        firstWorkspace.screenshot.update(\.padding, to: 96)
+        secondWorkspace.screenshot.update(\.padding, to: 18)
+
+        XCTAssertEqual(firstWorkspace.screenshot.state.screenshot.padding, 96)
+        XCTAssertEqual(secondWorkspace.screenshot.state.screenshot.padding, 18)
+    }
+
     func testAppModelFacadeMirrorsShellRouting() {
         let model = AppModel()
         let session = EditorSession(kind: .screenshot, url: URL(fileURLWithPath: "/tmp/screen.png"), title: "Screen")

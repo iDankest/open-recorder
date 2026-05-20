@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
 	cat <<'EOF'
-Usage: zsh scripts/create-macos-release-artifacts.zsh --app PATH --output-dir DIR --artifact-stem NAME
+Usage: zsh scripts/create-macos-production-release-artifacts.zsh --app PATH --output-dir DIR --artifact-stem NAME
 
 Creates a ZIP and compressed DMG for a macOS .app bundle.
 EOF

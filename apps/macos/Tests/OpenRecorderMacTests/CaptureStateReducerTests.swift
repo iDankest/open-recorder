@@ -92,6 +92,8 @@ final class CaptureStateReducerTests: XCTestCase {
 
         let starting = countdown.state.applying(.recordingStarting(source))
         XCTAssertEqual(starting.state.phase, .startingRecording(source, stopRequested: false))
+        XCTAssertEqual(starting.state.presentation, .hidden)
+        XCTAssertEqual(starting.effects, [.dismissScreenSelection, .hideAppWindowsForCapture])
 
         let queuedStop = starting.state.applying(.recordingStopRequested)
         XCTAssertEqual(queuedStop.state.phase, .startingRecording(source, stopRequested: true))
@@ -99,7 +101,9 @@ final class CaptureStateReducerTests: XCTestCase {
 
         let recording = queuedStop.state.applying(.recordingStarted(source))
         XCTAssertEqual(recording.state.phase, .recording(source))
+        XCTAssertEqual(recording.state.presentation, .hidden)
         XCTAssertEqual(recording.statusMessage, "Recording Display 1")
+        XCTAssertEqual(recording.effects, [.dismissScreenSelection, .hideAppWindowsForCapture])
 
         let stopping = recording.state.applying(.recordingStopRequested)
         XCTAssertEqual(stopping.state.phase, .stoppingRecording(source))

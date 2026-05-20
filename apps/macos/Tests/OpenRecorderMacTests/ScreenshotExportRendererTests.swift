@@ -464,4 +464,93 @@ final class ScreenshotEditorHistoryTests: XCTestCase {
         XCTAssertFalse(editor.canUndo)
         XCTAssertFalse(editor.canRedo)
     }
+
+    @MainActor
+    func testSaveComposedPNGUsesCurrentScreenshotStyle() throws {
+        let editor = ScreenshotEditorDriver()
+        let image = NSImage(size: NSSize(width: 2, height: 2))
+        let targetURL = URL(fileURLWithPath: "/tmp/styled-export.png")
+        var renderedState: ScreenshotEditorState?
+        var writtenURL: URL?
+        var writtenData: Data?
+        let background = BackgroundStyle.solid(SerializableColor(red: 1, green: 0, blue: 0))
+
+        editor.configure(
+            saveHandler: { _ in makeScreenshotProjectSummary() },
+            statusHandler: { _ in },
+            setStatusMessage: { _ in },
+            renderPNG: { _, state in
+                renderedState = state
+                return Data("styled-png".utf8)
+            },
+            presentSaveURL: { suggestedName in
+                XCTAssertEqual(suggestedName, "screen-export.png")
+                return targetURL
+            },
+            writePNG: { data, url in
+                writtenData = data
+                writtenURL = url
+            }
+        )
+
+        editor.update(\.background, to: background)
+        editor.update(\.padding, to: 96)
+        editor.update(\.backgroundRoundness, to: 44)
+        editor.update(\.imageShadow, to: 0.15)
+        editor.saveComposedPNG(image: image, suggestedFileName: "screen-export.png")
+
+        let state = try XCTUnwrap(renderedState)
+        XCTAssertEqual(state.background, background)
+        XCTAssertEqual(state.padding, 96)
+        XCTAssertEqual(state.backgroundRoundness, 44)
+        XCTAssertEqual(state.imageShadow, 0.15, accuracy: 0.001)
+        XCTAssertEqual(writtenURL, targetURL)
+        XCTAssertEqual(writtenData, Data("styled-png".utf8))
+    }
+
+    @MainActor
+    func testCopyComposedPNGUsesCurrentScreenshotStyle() throws {
+        let editor = ScreenshotEditorDriver()
+        let image = NSImage(size: NSSize(width: 2, height: 2))
+        var renderedState: ScreenshotEditorState?
+        var copiedData: Data?
+
+        editor.configure(
+            saveHandler: { _ in makeScreenshotProjectSummary() },
+            statusHandler: { _ in },
+            setStatusMessage: { _ in },
+            renderPNG: { _, state in
+                renderedState = state
+                return Data("copied-png".utf8)
+            },
+            copyPNG: { data in
+                copiedData = data
+                return true
+            }
+        )
+
+        editor.update(\.padding, to: 12)
+        editor.update(\.imageRoundness, to: 22)
+        editor.copyComposedPNG(image: image)
+
+        let state = try XCTUnwrap(renderedState)
+        XCTAssertEqual(state.padding, 12)
+        XCTAssertEqual(state.imageRoundness, 22)
+        XCTAssertEqual(copiedData, Data("copied-png".utf8))
+    }
+}
+
+private func makeScreenshotProjectSummary() -> ProjectSummary {
+    ProjectSummary(
+        id: "screenshot-project",
+        title: "Screenshot",
+        path: "/tmp/screenshot.openrecorder",
+        recordingPath: nil,
+        screenshotPath: "/tmp/screenshot.png",
+        sourceName: "Display",
+        createdAt: "2026-05-20T00:00:00Z",
+        updatedAt: "2026-05-20T00:00:00Z",
+        lastOpenedAt: "2026-05-20T00:00:00Z",
+        missing: false
+    )
 }

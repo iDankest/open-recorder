@@ -14,22 +14,22 @@ build-macos:
 dev-macos: run-macos-dev
 
 package-macos:
-	zsh scripts/package-macos-app.zsh
+	zsh scripts/package-macos-production-app.zsh
 
 package-macos-dev:
-	zsh scripts/package-macos-app.zsh --dev
+	zsh scripts/package-macos-development-app.zsh
 
 install-macos:
-	zsh scripts/package-macos-app.zsh --install
+	zsh scripts/package-macos-production-app.zsh --install
 
 install-macos-dev:
-	zsh scripts/package-macos-app.zsh --dev --install
+	zsh scripts/package-macos-development-app.zsh --install
 
 run-macos:
-	zsh scripts/package-macos-app.zsh --install --launch
+	zsh scripts/package-macos-production-app.zsh --install --launch
 
 run-macos-dev:
-	zsh scripts/package-macos-app.zsh --dev --install --launch
+	zsh scripts/package-macos-development-app.zsh --install --launch
 
 reset-macos-permissions:
 	tccutil reset ScreenCapture dev.openrecorder.app

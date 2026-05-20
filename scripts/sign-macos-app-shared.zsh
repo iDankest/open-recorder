@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 bundle_dir="${1:-$repo_root/release/Open Recorder.app}"
 entitlements_plist="${OPEN_RECORDER_ENTITLEMENTS_PLIST:-$repo_root/apps/macos/Resources/OpenRecorder.entitlements}"
+signing_keychain="${OPEN_RECORDER_SIGNING_KEYCHAIN:-}"
 
 if [[ ! -d "$bundle_dir" ]]; then
 	print -u2 -- "App bundle not found: $bundle_dir"
@@ -35,11 +36,20 @@ cleanup() {
 
 trap cleanup EXIT
 
+list_codesign_identities() {
+	local security_args=(-v -p codesigning)
+	if [[ -n "$signing_keychain" ]]; then
+		security_args+=("$signing_keychain")
+	fi
+
+	security find-identity "${security_args[@]}" 2>/dev/null
+}
+
 find_codesign_identity() {
 	local pattern="$1"
 	local line hash name
 	line="$(
-		security find-identity -v -p codesigning 2>/dev/null \
+		list_codesign_identities \
 			| grep -F "\"$pattern" \
 			| head -n 1 || true
 	)"
@@ -66,8 +76,11 @@ resolve_codesign_identity() {
 		fi
 	fi
 
+	local local_dev_identity_name="${OPEN_RECORDER_LOCAL_DEV_CODESIGN_IDENTITY:-Open Recorder Local Development}"
+	local local_dev_identity
+
 	local dev_identity="${OPEN_RECORDER_DEV_CODESIGN_IDENTITY:-}"
-	if [[ -n "$dev_identity" ]] && security find-identity -v -p codesigning 2>/dev/null | grep -Fq "\"$dev_identity\""; then
+	if [[ -n "$dev_identity" ]] && list_codesign_identities | grep -Fq "\"$dev_identity\""; then
 		print -- "$dev_identity\t$dev_identity"
 		return
 	fi
@@ -82,11 +95,19 @@ resolve_codesign_identity() {
 	# When an Apple development certificate is not available, a stable local
 	# certificate keeps macOS TCC grants from being pinned to each rebuilt
 	# executable hash.
-	local stable_local_identity
-	stable_local_identity="$(find_codesign_identity "arni-dev")"
-	if [[ -n "$stable_local_identity" ]]; then
-		print -- "$stable_local_identity"
-		return
+	if [[ "$signing_purpose" == "development" ]]; then
+		local_dev_identity="$(find_codesign_identity "$local_dev_identity_name")"
+		if [[ -n "$local_dev_identity" ]]; then
+			print -- "$local_dev_identity"
+			return
+		fi
+
+		local stable_local_identity
+		stable_local_identity="$(find_codesign_identity "arni-dev")"
+		if [[ -n "$stable_local_identity" ]]; then
+			print -- "$stable_local_identity"
+			return
+		fi
 	fi
 
 	local developer_id_identity
@@ -163,17 +184,32 @@ ad_hoc_app_entitlements() {
 }
 
 if command -v codesign >/dev/null 2>&1; then
+	signing_purpose="${OPEN_RECORDER_SIGNING_PURPOSE:-production}"
 	identity_line="$(resolve_codesign_identity)"
 	sign_identity="${identity_line%%$'\t'*}"
 	sign_identity_name="${identity_line#*$'\t'}"
+	bundle_identifier="$(
+		/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$bundle_dir/Contents/Info.plist" 2>/dev/null \
+			|| true
+	)"
 
 	codesign_args=(--force --options runtime --sign "$sign_identity")
+	if [[ -n "$signing_keychain" ]]; then
+		codesign_args+=(--keychain "$signing_keychain")
+	fi
 	if [[ "$sign_identity_name" == Developer\ ID\ Application:* ]]; then
 		codesign_args+=(--timestamp)
 	else
 		codesign_args+=(--timestamp=none)
 	fi
 	app_codesign_args=("${codesign_args[@]}")
+	if [[ "$sign_identity" == "-" && "$signing_purpose" == "development" && -n "$bundle_identifier" ]]; then
+		app_codesign_args+=(
+			--identifier "$bundle_identifier"
+			--requirements "=designated => identifier \"$bundle_identifier\""
+		)
+		sign_identity_name="Stable ad-hoc ($bundle_identifier)"
+	fi
 	app_entitlements_plist="$entitlements_plist"
 	if [[ "$sign_identity" == "-" ]]; then
 		app_entitlements_plist="$(ad_hoc_app_entitlements)"

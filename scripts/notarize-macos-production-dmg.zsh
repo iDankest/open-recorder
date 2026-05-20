@@ -4,6 +4,7 @@ set -euo pipefail
 
 dmg_path="${1:-}"
 sign_identity="${CODE_SIGN_IDENTITY:-}"
+signing_keychain="${OPEN_RECORDER_SIGNING_KEYCHAIN:-}"
 apple_id="${APPLE_ID:-}"
 apple_password="${APPLE_APP_SPECIFIC_PASSWORD:-}"
 apple_team_id="${APPLE_TEAM_ID:-}"
@@ -44,7 +45,7 @@ submit_for_notarization() {
 	done
 }
 
-[[ -n "$dmg_path" && -f "$dmg_path" ]] || die "Usage: zsh scripts/notarize-macos-dmg.zsh PATH_TO_DMG"
+[[ -n "$dmg_path" && -f "$dmg_path" ]] || die "Usage: zsh scripts/notarize-macos-production-dmg.zsh PATH_TO_DMG"
 [[ -n "$sign_identity" ]] || die "Missing CODE_SIGN_IDENTITY."
 [[ -n "$apple_id" ]] || die "Missing APPLE_ID secret."
 [[ -n "$apple_password" ]] || die "Missing APPLE_APP_SPECIFIC_PASSWORD secret."
@@ -52,7 +53,11 @@ submit_for_notarization() {
 [[ "$notary_max_attempts" == <-> && "$notary_max_attempts" -ge 1 ]] || die "NOTARYTOOL_MAX_ATTEMPTS must be a positive integer."
 [[ "$notary_retry_delay_seconds" == <-> ]] || die "NOTARYTOOL_RETRY_DELAY_SECONDS must be a non-negative integer."
 
-codesign --force --timestamp --sign "$sign_identity" "$dmg_path"
+codesign_args=(--force --timestamp --sign "$sign_identity")
+if [[ -n "$signing_keychain" ]]; then
+	codesign_args+=(--keychain "$signing_keychain")
+fi
+codesign "${codesign_args[@]}" "$dmg_path"
 
 submit_for_notarization "$dmg_path"
 

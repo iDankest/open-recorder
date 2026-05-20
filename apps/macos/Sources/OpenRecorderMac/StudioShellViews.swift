@@ -9,7 +9,8 @@ struct StudioWindowView: View {
     var editorSession: EditorSession?
 
     var body: some View {
-        StudioShell(editorSession: editorSession, workspace: model.appShell.workspace)
+        let workspace = model.appShell.workspace(for: editorSession)
+        StudioShell(editorSession: editorSession, workspace: workspace)
             .onAppear {
                 if model.selectedSection == .capture {
                     model.selectedSection = .editor

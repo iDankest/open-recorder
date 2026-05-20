@@ -69,6 +69,8 @@ Development runs as a separate macOS app:
 - `make dev-macos` builds, installs, and launches `/Applications/Open Recorder Dev.app`
 - The development bundle identifier is `dev.openrecorder.app.dev`
 - Production packaging remains `/Applications/Open Recorder.app` with bundle identifier `dev.openrecorder.app`
+- Script entrypoints spell out their role: development scripts use `development`, production/release scripts use `production`, and shared helpers use `shared`.
+- Development signing prefers a real development certificate when one is available. Without one, the dev bundle is ad-hoc signed with a stable designated requirement for `dev.openrecorder.app.dev`, so macOS privacy grants are not pinned to each rebuilt executable hash.
 
 This keeps development and production installs from sharing macOS app identity, window state, and privacy permission records.
 

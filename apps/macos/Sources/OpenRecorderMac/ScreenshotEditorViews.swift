@@ -352,14 +352,14 @@ struct ScreenshotCanvas: View {
     }
 
     private var exportConfiguration: ScreenshotExportConfiguration {
-        ScreenshotExportConfiguration(
+        ScreenshotExportConfiguration(screenshotState: ScreenshotEditorState(
             background: background,
             padding: padding,
             backgroundRoundness: backgroundRoundness,
             backgroundShadow: backgroundShadow,
             imageRoundness: imageRoundness,
             imageShadow: imageShadow
-        )
+        ))
     }
 
     private static func logicalSize(for image: NSImage) -> CGSize {

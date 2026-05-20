@@ -9,6 +9,33 @@ struct ScreenshotExportConfiguration {
     var backgroundShadow: Double
     var imageRoundness: Double
     var imageShadow: Double
+
+    init(
+        background: BackgroundStyle,
+        padding: Double,
+        backgroundRoundness: Double,
+        backgroundShadow: Double,
+        imageRoundness: Double,
+        imageShadow: Double
+    ) {
+        self.background = background
+        self.padding = padding
+        self.backgroundRoundness = backgroundRoundness
+        self.backgroundShadow = backgroundShadow
+        self.imageRoundness = imageRoundness
+        self.imageShadow = imageShadow
+    }
+
+    init(screenshotState: ScreenshotEditorState) {
+        self.init(
+            background: screenshotState.background,
+            padding: screenshotState.padding,
+            backgroundRoundness: screenshotState.backgroundRoundness,
+            backgroundShadow: screenshotState.backgroundShadow,
+            imageRoundness: screenshotState.imageRoundness,
+            imageShadow: screenshotState.imageShadow
+        )
+    }
 }
 
 struct ScreenshotCompositionLayout {

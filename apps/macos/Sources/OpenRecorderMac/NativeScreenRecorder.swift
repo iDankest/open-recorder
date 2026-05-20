@@ -8,6 +8,7 @@ enum NativeScreenRecorderError: LocalizedError {
     case missingDisplay
     case missingWindow
     case windowIdentityChanged(expected: String?, actual: String?)
+    case selfCaptureUnsupported
     case unsupportedSource
     case recordingOutputUnavailable
 
@@ -21,6 +22,8 @@ enum NativeScreenRecorderError: LocalizedError {
             let expectedLabel = expected ?? "the selected window"
             let actualLabel = actual.map { " (now belongs to \($0))" } ?? ""
             return "The selected window has been replaced\(actualLabel). Refresh sources and pick \(expectedLabel) again."
+        case .selfCaptureUnsupported:
+            return "Open Recorder windows are excluded from recordings."
         case .unsupportedSource:
             return "Selected-area video recording is not implemented in the native recorder yet."
         case .recordingOutputUnavailable:
@@ -143,8 +146,13 @@ final class NativeScreenRecorder: NSObject {
                   let display = content.displays.first(where: { $0.displayID == displayID }) else {
                 throw NativeScreenRecorderError.missingDisplay
             }
+            let excludedApplications = openRecorderApplications(in: content)
             return (
-                SCContentFilter(display: display, excludingWindows: []),
+                SCContentFilter(
+                    display: display,
+                    excludingApplications: excludedApplications,
+                    exceptingWindows: []
+                ),
                 max(display.width, 640),
                 max(display.height, 360),
                 nil
@@ -155,6 +163,9 @@ final class NativeScreenRecorder: NSObject {
                 throw NativeScreenRecorderError.missingWindow
             }
             try verifyWindowIdentity(source: source, window: window)
+            guard !isOpenRecorderApplication(window.owningApplication) else {
+                throw NativeScreenRecorderError.selfCaptureUnsupported
+            }
             let width = max(Int(window.frame.width), 640)
             let height = max(Int(window.frame.height), 360)
             return (
@@ -177,13 +188,36 @@ final class NativeScreenRecorder: NSObject {
             }
 
             let sourceRect = sourceRect(for: area, display: display)
+            let excludedApplications = openRecorderApplications(in: content)
             return (
-                SCContentFilter(display: display, excludingWindows: []),
+                SCContentFilter(
+                    display: display,
+                    excludingApplications: excludedApplications,
+                    exceptingWindows: []
+                ),
                 max(Int(sourceRect.width.rounded()), 2),
                 max(Int(sourceRect.height.rounded()), 2),
                 sourceRect
             )
         }
+    }
+
+    private func openRecorderApplications(in content: SCShareableContent) -> [SCRunningApplication] {
+        content.applications.filter { application in
+            isOpenRecorderApplication(application)
+        }
+    }
+
+    private func isOpenRecorderApplication(_ application: SCRunningApplication?) -> Bool {
+        guard let application else {
+            return false
+        }
+
+        return OpenRecorderCaptureExclusion.shouldExcludeApplication(
+            bundleIdentifier: application.bundleIdentifier,
+            applicationName: application.applicationName,
+            processID: application.processID
+        )
     }
 
     private func resolveWindow(for source: CaptureSource, in content: SCShareableContent) -> SCWindow? {
