@@ -17,6 +17,9 @@ final class OpenRecorderAppDelegate: NSObject, NSApplicationDelegate {
             self.model = model
             statusItemController.attach(model: model, windowActions: windowActions)
             hotKeyController.attach(model: model)
+            model.installNativeWindowCommandHandler { [weak self] command in
+                self?.handleWindowCommand(command)
+            }
         } else {
             self.model = model
         }

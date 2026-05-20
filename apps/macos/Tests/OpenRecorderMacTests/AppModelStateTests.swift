@@ -441,6 +441,54 @@ final class AppModelStateTests: XCTestCase {
         XCTAssertEqual(model.windowCommand?.action, .showStudio)
     }
 
+    func testScreenshotCompletionEmitsEditorCommandThroughNativeHandlerWhenCaptureWindowsAreHidden() async throws {
+        var handledCommands: [NativeWindowCommand] = []
+        var model: AppModel!
+        let screenshotsDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("open-recorder-screenshots-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: screenshotsDir)
+        }
+        let paths = AppPaths(
+            recordingsDir: screenshotsDir.path,
+            screenshotsDir: screenshotsDir.path,
+            projectsDir: screenshotsDir.path,
+            supportDir: screenshotsDir.path
+        )
+        model = AppModel(
+            screenRecordingPermission: makeScreenRecordingPermission(isGranted: true),
+            captureUIHideDelayNanoseconds: 0,
+            screenshotCapture: { _, outputURL in
+                try FileManager.default.createDirectory(
+                    at: outputURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                guard FileManager.default.createFile(atPath: outputURL.path, contents: Data("png".utf8)) else {
+                    throw TestScreenshotError.writeFailed
+                }
+            }
+        )
+        model.installNativeWindowCommandHandler { command in
+            handledCommands.append(command)
+            _ = model.consumeWindowCommand(command)
+        }
+        let source = makeSource()
+
+        model.paths = paths
+        model.setCaptureStateForTesting(HUDState(phase: .ready(.screenshot, source), presentation: .visible))
+        model.takeScreenshot()
+        await waitForCondition {
+            handledCommands.contains { $0.action == .showStudio }
+        }
+
+        XCTAssertTrue(handledCommands.contains { $0.action == .hideAppWindowsForCapture })
+        let editorCommand = try XCTUnwrap(handledCommands.last { $0.action == .showStudio })
+        XCTAssertEqual(editorCommand.editorSession?.kind, .screenshot)
+        XCTAssertEqual(model.hudState, .choosingMode)
+        XCTAssertEqual(model.selectedSection, .editor)
+        XCTAssertNil(model.windowCommand)
+    }
+
     func testCancelingScreenshotDuringCaptureDoesNotOpenEditor() async throws {
         var didCapture = false
         var model: AppModel!
@@ -539,6 +587,41 @@ final class AppModelStateTests: XCTestCase {
         XCTAssertEqual(editorSession.url, outputURL)
         XCTAssertEqual(model.hudState, .choosingMode)
         XCTAssertTrue(model.canStartNewCapture)
+    }
+
+    func testRecordingCompletionEmitsEditorCommandThroughNativeHandlerWhenCaptureWindowsAreHidden() async throws {
+        var handledCommands: [NativeWindowCommand] = []
+        var model: AppModel!
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("finished-recording-\(UUID().uuidString).mp4")
+        defer {
+            try? FileManager.default.removeItem(at: outputURL)
+        }
+        try Data("mp4".utf8).write(to: outputURL)
+        model = AppModel(
+            stopRecording: {
+                outputURL
+            }
+        )
+        model.installNativeWindowCommandHandler { command in
+            handledCommands.append(command)
+            _ = model.consumeWindowCommand(command)
+        }
+        let source = makeSource()
+
+        model.setCaptureStateForTesting(.recording(source))
+        model.stopRecording()
+        await waitForCondition {
+            handledCommands.contains { $0.action == .showStudio }
+        }
+
+        XCTAssertTrue(handledCommands.contains { $0.action == .hideRecordingSetup })
+        let editorCommand = try XCTUnwrap(handledCommands.last { $0.action == .showStudio })
+        XCTAssertEqual(editorCommand.editorSession?.kind, .video)
+        XCTAssertEqual(editorCommand.editorSession?.url, outputURL)
+        XCTAssertEqual(model.hudState, .choosingMode)
+        XCTAssertEqual(model.selectedSection, .editor)
+        XCTAssertNil(model.windowCommand)
     }
 
     func testEditorSessionCanCarryRecordingSessionMetadata() {
@@ -823,6 +906,20 @@ final class AppModelStateTests: XCTestCase {
         XCTAssertEqual(model.hudState.presentation, .hidden)
         XCTAssertEqual(firstCommand?.action, .hideHUD)
         XCTAssertNil(secondCommand)
+    }
+
+    func testInstallingNativeWindowCommandHandlerImmediatelyHandlesPendingCommand() {
+        var handledCommand: NativeWindowCommand?
+        let model = AppModel()
+
+        model.requestWindow(.hideAppWindowsForCapture)
+        model.installNativeWindowCommandHandler { command in
+            handledCommand = command
+            _ = model.consumeWindowCommand(command)
+        }
+
+        XCTAssertEqual(handledCommand?.action, .hideAppWindowsForCapture)
+        XCTAssertNil(model.windowCommand)
     }
 
     func testRecordingShortcutCancelsCountdownAndRestoresReadyHUD() {

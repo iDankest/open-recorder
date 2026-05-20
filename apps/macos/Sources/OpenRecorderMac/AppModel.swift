@@ -80,6 +80,7 @@ final class AppModel: ObservableObject {
     private let facecamRecorder = FacecamRecorder()
     private let cursorTelemetryRecorder = CursorTelemetryRecorder()
     private let captureDeviceProvider = CaptureDeviceProvider()
+    private var nativeWindowCommandHandler: (NativeWindowCommand) -> Void = { _ in }
     private static let createZoomsAutomaticallyDefaultsKey = "recording.createZoomsAutomatically"
 
     init(
@@ -326,8 +327,13 @@ final class AppModel: ObservableObject {
     }
 
     private func sendAppShell(_ event: AppShellEvent) {
+        let previousCommandID = appShell.state.windowCommand?.id
         appShell.send(event)
         syncAppShellMirror()
+        if let command = appShell.state.windowCommand,
+           command.id != previousCommandID {
+            nativeWindowCommandHandler(command)
+        }
     }
 
     private func syncAppShellMirror() {
@@ -679,6 +685,13 @@ final class AppModel: ObservableObject {
 
     func requestWindow(_ action: NativeWindowCommandAction, editorSession: EditorSession? = nil) {
         sendAppShell(.windowCommandRequested(action, editorSession: editorSession))
+    }
+
+    func installNativeWindowCommandHandler(_ handler: @escaping (NativeWindowCommand) -> Void) {
+        nativeWindowCommandHandler = handler
+        if let command = appShell.state.windowCommand {
+            nativeWindowCommandHandler(command)
+        }
     }
 
     func showHUD() {
