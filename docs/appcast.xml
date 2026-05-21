@@ -117,5 +117,20 @@
 ]]></description>
             <enclosure url="https://github.com/imbhargav5/open-recorder/releases/download/v0.2.21/open-recorder-macos.zip" sparkle:edSignature="NRTD7Ev1Q/mBm9Ag+X3weRpc2WF+Ubcj3rBny/cMZ8yn2Wk76jj9Fj+errRn4JgQC6j4oXbcvforQPCcOtTVCw==" length="40213308" type="application/octet-stream"/>
         </item>
+        <item>
+            <title>Version 0.2.22</title>
+            <pubDate>Thu, 21 May 2026 18:09:26 GMT</pubDate>
+            <sparkle:version>0.2.22</sparkle:version>
+            <sparkle:shortVersionString>0.2.22</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+## Commits since v0.2.21
+
+- 7800fb6 Merge pull request #289 from imbhargav5/codex/sync-bundle-release-version
+- 3362fa1 Sync macOS bundle version with releases
+- e65d3f1 Update appcast for v0.2.21
+]]></description>
+            <enclosure url="https://github.com/imbhargav5/open-recorder/releases/download/v0.2.22/open-recorder-macos.zip" sparkle:edSignature="SwnAGHu+OLoh3yuOuTNiwoCHbe+O1TCuuJr+e8f7lmoAoGeoB/H/WF0frW7ta7vwll6zXLvREZKJ4uVGluSEBg==" length="40213344" type="application/octet-stream"/>
+        </item>
     </channel>
 </rss>
