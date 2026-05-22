@@ -177,5 +177,20 @@
 ]]></description>
             <enclosure url="https://github.com/imbhargav5/open-recorder/releases/download/v0.2.25/open-recorder-macos.zip" sparkle:edSignature="r9k3E7hf3uZCkAhc9HBWzkyzHj+m54PexYDyXlusWEnNI6d6RntrzORl0LStiigiv5SOUCfymAA20JX2CA4FAg==" length="40227144" type="application/octet-stream"/>
         </item>
+        <item>
+            <title>Version 0.2.26</title>
+            <pubDate>Fri, 22 May 2026 20:11:51 GMT</pubDate>
+            <sparkle:version>0.2.26</sparkle:version>
+            <sparkle:shortVersionString>0.2.26</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+## Commits since v0.2.25
+
+- 565afe0 Merge pull request #309 from imbhargav5/codex/fix-preview-cursor-square
+- 21d9754 Fix preview zoom layer rendering
+- 8a4994a Update appcast for v0.2.25
+]]></description>
+            <enclosure url="https://github.com/imbhargav5/open-recorder/releases/download/v0.2.26/open-recorder-macos.zip" sparkle:edSignature="BUF6LqDijBfDE83tYaV/Eg4HAIxEzgwFzts4ZT/hh6g+zwWmtipZadWuoXZFRb3yBnKuQ5ufTbmAXKBr2sdmBg==" length="39800481" type="application/octet-stream"/>
+        </item>
     </channel>
 </rss>
