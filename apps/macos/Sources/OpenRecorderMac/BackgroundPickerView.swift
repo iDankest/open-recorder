@@ -8,7 +8,7 @@ struct BackgroundPickerView: View {
     @State private var activeKind: BackgroundStylePresetKind
 
     private let tileCornerRadius: CGFloat = 7
-    private let tileHeight: CGFloat = 36
+    private let tileHeight: CGFloat = 32
     private let tileSpacing: CGFloat = 6
 
     init(selection: Binding<BackgroundStyle>, includeTransparent: Bool = true) {
@@ -26,37 +26,50 @@ struct BackgroundPickerView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Background")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle()
+                .fill(Theme.borderStrong.opacity(0.55))
+                .frame(height: 1)
 
-            HStack(spacing: 4) {
-                ForEach(availableKinds) { kind in
-                    StudioButton(hitTarget: .rounded(7)) {
-                        activate(kind)
-                    } label: {
-                        Image(systemName: kind.symbolName)
-                            .font(.system(size: 11, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 28)
-                            .background(activeKind == kind ? Theme.accent : Theme.overlay, in: RoundedRectangle(cornerRadius: 7))
-                            .foregroundStyle(activeKind == kind ? Color.white : Color.secondary)
-                            .help(kind.title)
+            HStack(spacing: 8) {
+                Text("Background")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.fg.opacity(0.94))
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 18)
+            .padding(.bottom, 17)
+
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(spacing: 5) {
+                    ForEach(availableKinds) { kind in
+                        StudioButton(hitTarget: .rounded(7), help: kind.title) {
+                            activate(kind)
+                        } label: {
+                            Image(systemName: kind.symbolName)
+                                .font(.system(size: 11, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 26)
+                                .background(activeKind == kind ? Theme.accent.opacity(0.92) : Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .foregroundStyle(activeKind == kind ? Theme.accentFg : Theme.fgMuted)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(activeKind == kind ? Theme.accent.opacity(0.70) : Theme.borderSubtle, lineWidth: 1)
+                                }
+                        }
                     }
                 }
-            }
 
-            switch activeKind {
-            case .gradient: gradientGrid
-            case .color: colorGrid
-            case .wallpaper: wallpaperGrid
-            case .transparent: transparentNote
+                switch activeKind {
+                case .gradient: gradientGrid
+                case .color: colorGrid
+                case .wallpaper: wallpaperGrid
+                case .transparent: transparentNote
+                }
             }
+            .padding(.bottom, 18)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 3)
         .onChange(of: selection) { _, newValue in
             let incoming = newValue.presetKind
             if activeKind != incoming {
@@ -158,7 +171,7 @@ struct BackgroundPickerView: View {
     }
 
     private var fourColumnGridItems: [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 0), spacing: tileSpacing), count: 4)
+        Array(repeating: GridItem(.flexible(minimum: 44), spacing: tileSpacing), count: 4)
     }
 
     private var transparentNote: some View {
@@ -212,21 +225,28 @@ struct WallpaperThumbnail: View {
     let preset: WallpaperPreset
 
     var body: some View {
-        Group {
-            if let url = preset.thumbURL, let image = WallpaperImageCache.image(for: url) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(Theme.surfaceRaised)
-                    .overlay {
-                        Image(systemName: "photo")
-                            .foregroundStyle(Color.secondary)
-                    }
-            }
+        GeometryReader { proxy in
+            thumbnailContent
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
         }
         .clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+
+    @ViewBuilder
+    private var thumbnailContent: some View {
+        if let url = preset.thumbURL, let image = WallpaperImageCache.image(for: url) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+        } else {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(Theme.surfaceRaised)
+                .overlay {
+                    Image(systemName: "photo")
+                        .foregroundStyle(Color.secondary)
+                }
+        }
     }
 }
 

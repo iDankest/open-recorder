@@ -408,7 +408,7 @@ enum BackgroundStylePresetKind: String, CaseIterable, Identifiable {
         switch self {
         case .gradient: "circle.lefthalf.filled.righthalf.striped.horizontal"
         case .color: "circle.fill"
-        case .wallpaper: "photo.on.rectangle.angled"
+        case .wallpaper: "photo"
         case .transparent: "square.dashed"
         }
     }
