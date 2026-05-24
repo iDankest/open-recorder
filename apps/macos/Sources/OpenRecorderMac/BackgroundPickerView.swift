@@ -4,6 +4,7 @@ import SwiftUI
 struct BackgroundPickerView: View {
     @Binding var selection: BackgroundStyle
     var includeTransparent: Bool
+    var showsTopDivider: Bool
 
     @State private var activeKind: BackgroundStylePresetKind
 
@@ -11,9 +12,10 @@ struct BackgroundPickerView: View {
     private let tileHeight: CGFloat = 32
     private let tileSpacing: CGFloat = 6
 
-    init(selection: Binding<BackgroundStyle>, includeTransparent: Bool = true) {
+    init(selection: Binding<BackgroundStyle>, includeTransparent: Bool = true, showsTopDivider: Bool = true) {
         self._selection = selection
         self.includeTransparent = includeTransparent
+        self.showsTopDivider = showsTopDivider
         self._activeKind = State(initialValue: selection.wrappedValue.presetKind)
     }
 
@@ -27,9 +29,11 @@ struct BackgroundPickerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Rectangle()
-                .fill(Theme.borderStrong.opacity(0.55))
-                .frame(height: 1)
+            if showsTopDivider {
+                Rectangle()
+                    .fill(Theme.borderStrong.opacity(0.55))
+                    .frame(height: 1)
+            }
 
             HStack(spacing: 8) {
                 Text("Background")
@@ -61,39 +65,52 @@ struct BackgroundPickerView: View {
                 }
 
                 switch activeKind {
-                case .gradient: gradientGrid
-                case .color: colorGrid
-                case .wallpaper: wallpaperGrid
-                case .transparent: transparentNote
+                case .gradient:
+                    gradientGrid
+                        .transaction { $0.animation = nil }
+                case .color:
+                    colorGrid
+                        .transaction { $0.animation = nil }
+                case .wallpaper:
+                    wallpaperGrid
+                        .transaction { $0.animation = nil }
+                case .transparent:
+                    transparentNote
+                        .transaction { $0.animation = nil }
                 }
             }
             .padding(.bottom, 18)
+            .animation(.snappy(duration: 0.34), value: activeKind)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: selection) { _, newValue in
             let incoming = newValue.presetKind
             if activeKind != incoming {
-                activeKind = incoming
+                withAnimation(.snappy(duration: 0.34)) {
+                    activeKind = incoming
+                }
             }
         }
     }
 
     private func activate(_ kind: BackgroundStylePresetKind) {
-        activeKind = kind
-        switch kind {
-        case .gradient:
-            if case .gradient = selection { return }
-            selection = .gradient(BackgroundPresets.gradients[0])
-        case .color:
-            if case .solid = selection { return }
-            selection = .solid(BackgroundPresets.solidColors[0])
-        case .wallpaper:
-            if case .wallpaper = selection { return }
-            if let first = BackgroundPresets.wallpapers.first {
-                selection = .wallpaper(first)
+        withAnimation(.snappy(duration: 0.34)) {
+            activeKind = kind
+            switch kind {
+            case .gradient:
+                if case .gradient = selection { return }
+                selection = .gradient(BackgroundPresets.gradients[0])
+            case .color:
+                if case .solid = selection { return }
+                selection = .solid(BackgroundPresets.solidColors[0])
+            case .wallpaper:
+                if case .wallpaper = selection { return }
+                if let first = BackgroundPresets.wallpapers.first {
+                    selection = .wallpaper(first)
+                }
+            case .transparent:
+                selection = .transparent
             }
-        case .transparent:
-            selection = .transparent
         }
     }
 
@@ -132,20 +149,22 @@ struct BackgroundPickerView: View {
     }
 
     private var colorGrid: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 6), spacing: 6) {
+        LazyVGrid(columns: fourColumnGridItems, spacing: tileSpacing) {
             ForEach(BackgroundPresets.solidColors.indices, id: \.self) { index in
                 let swatch = BackgroundPresets.solidColors[index]
-                StudioButton(hitTarget: .circle) {
+                StudioButton(hitTarget: .rounded(7)) {
                     selection = .solid(swatch)
                 } label: {
-                    Circle()
+                    RoundedRectangle(cornerRadius: tileCornerRadius, style: .continuous)
                         .fill(swatch.color)
-                        .frame(width: 28, height: 28)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: tileHeight)
                         .overlay {
-                            Circle()
-                                .stroke(selectedColor == swatch ? Theme.accent : Theme.borderStrong, lineWidth: selectedColor == swatch ? 2 : 1)
+                            RoundedRectangle(cornerRadius: tileCornerRadius, style: .continuous)
+                                .stroke(selectedColor == swatch ? Theme.accent : Theme.border, lineWidth: selectedColor == swatch ? 2 : 1)
                         }
                 }
+                .help(swatch.hexString)
             }
         }
     }
@@ -175,14 +194,43 @@ struct BackgroundPickerView: View {
     }
 
     private var transparentNote: some View {
-        HStack(spacing: 8) {
-            Checkerboard()
-                .frame(width: 36, height: 36)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            Text("Transparent background. Exports keep the alpha channel.")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        StudioButton(hitTarget: .rounded(8), help: "Transparent background") {
+            selection = .transparent
+        } label: {
+            HStack(spacing: 11) {
+                Checkerboard()
+                    .frame(width: 56, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Theme.borderStrong.opacity(0.72), lineWidth: 1)
+                    }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("No background")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.fg.opacity(0.92))
+                    Text("Exports preserve alpha")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Theme.fgMuted)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 20, height: 20)
+                    .background(Theme.accent.opacity(0.12), in: Circle())
+            }
+            .padding(9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.overlay.opacity(0.72), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(Theme.accent.opacity(0.38), lineWidth: 1)
+            }
         }
     }
 }

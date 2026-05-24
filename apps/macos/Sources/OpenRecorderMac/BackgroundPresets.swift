@@ -388,9 +388,9 @@ enum BackgroundPresets {
 }
 
 enum BackgroundStylePresetKind: String, CaseIterable, Identifiable {
-    case gradient
-    case color
     case wallpaper
+    case color
+    case gradient
     case transparent
 
     var id: String { rawValue }
@@ -398,9 +398,9 @@ enum BackgroundStylePresetKind: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .gradient: "Gradient"
-        case .color: "Color"
-        case .wallpaper: "Wallpaper"
-        case .transparent: "None"
+        case .color: "Solid"
+        case .wallpaper: "Image"
+        case .transparent: "Transparent"
         }
     }
 

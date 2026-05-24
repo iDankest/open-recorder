@@ -12,12 +12,15 @@ struct ElasticSlider: View {
     var trackHeight: CGFloat = 16
     var hitHeight: CGFloat = 32
     var fillColor: Color = Color(red: 0.961, green: 0.961, blue: 0.961)
+    var dragFillColor: Color?
     var thumbSize: CGFloat = 0
     var thumbWidth: CGFloat?
     var thumbHeight: CGFloat?
     var thumbColor: Color = Color.white.opacity(0.98)
+    var setsValueFromPointerLocation = false
 
     @State private var visualProgress: Double?
+    @State private var settlingCommittedProgress: Double?
     @State private var dragStartValue: Double = 0
     @State private var isDragging = false
     @State private var isHovering = false
@@ -30,6 +33,9 @@ struct ElasticSlider: View {
     var body: some View {
         GeometryReader { proxy in
             let width = max(proxy.size.width, 1)
+            let committedProgress = (
+                settlingCommittedProgress ?? normalized(isDragging ? dragStartValue : value)
+            ).clamped(to: 0...1)
             let progress = visualProgress ?? normalized(value)
             let clampedProgress = progress.clamped(to: 0...1)
             let overpull = progress < 0 ? progress : max(0, progress - 1)
@@ -40,10 +46,24 @@ struct ElasticSlider: View {
             let resolvedThumbWidth = thumbWidth ?? thumbSize
             let resolvedThumbHeight = thumbHeight ?? thumbSize
             let hasThumb = resolvedThumbWidth > 0 && resolvedThumbHeight > 0
+            let committedFillWidth = width * CGFloat(committedProgress)
+            let dragFillWidth = isDragging
+                ? width * CGFloat(clampedProgress)
+                : nil
+            let drawsDragFillAboveCommitted = isDragging && clampedProgress < committedProgress
+            let resolvedFillColor = drawsDragFillAboveCommitted ? effectiveDragFillColor : fillColor
+            let resolvedDragFillColor = drawsDragFillAboveCommitted ? fillColor : effectiveDragFillColor
             let valueX = width * CGFloat(clampedProgress)
 
             ZStack {
-                sliderTrack(width: width, fillWidth: valueX)
+                sliderTrack(
+                    width: width,
+                    fillWidth: committedFillWidth,
+                    fillColor: resolvedFillColor,
+                    dragFillWidth: dragFillWidth,
+                    dragFillColor: resolvedDragFillColor,
+                    drawsDragFillAboveCommitted: drawsDragFillAboveCommitted
+                )
                     .scaleEffect(x: scaleX, y: scaleY)
                     .offset(x: hasThumb ? 0 : offsetX)
                     .animation(.easeOut(duration: 0.15), value: isEnabled)
@@ -93,7 +113,18 @@ struct ElasticSlider: View {
         }
     }
 
-    private func sliderTrack(width: CGFloat, fillWidth: CGFloat) -> some View {
+    private var effectiveDragFillColor: Color {
+        dragFillColor ?? fillColor
+    }
+
+    private func sliderTrack(
+        width: CGFloat,
+        fillWidth: CGFloat,
+        fillColor: Color,
+        dragFillWidth: CGFloat? = nil,
+        dragFillColor: Color,
+        drawsDragFillAboveCommitted: Bool = false
+    ) -> some View {
         Capsule()
             .fill(Theme.border)
             .overlay {
@@ -110,10 +141,28 @@ struct ElasticSlider: View {
                 .allowsHitTesting(false)
             }
             .overlay(alignment: .leading) {
-                Rectangle()
-                    .fill(fillColor)
-                    .frame(width: fillWidth)
-                    .allowsHitTesting(false)
+                if let dragFillWidth, !drawsDragFillAboveCommitted {
+                    Rectangle()
+                        .fill(dragFillColor)
+                        .frame(width: dragFillWidth)
+                        .allowsHitTesting(false)
+                }
+            }
+            .overlay(alignment: .leading) {
+                if fillWidth > 0 {
+                    Rectangle()
+                        .fill(fillColor)
+                        .frame(width: fillWidth)
+                        .allowsHitTesting(false)
+                }
+            }
+            .overlay(alignment: .leading) {
+                if let dragFillWidth, drawsDragFillAboveCommitted {
+                    Rectangle()
+                        .fill(dragFillColor)
+                        .frame(width: dragFillWidth)
+                        .allowsHitTesting(false)
+                }
             }
             .clipShape(Capsule())
             .overlay {
@@ -130,28 +179,38 @@ struct ElasticSlider: View {
 
                 if !isDragging {
                     isDragging = true
+                    settlingCommittedProgress = nil
                     dragStartValue = value
                     performDragStartHaptic()
                     onEditingChanged(true)
                 }
 
-                let nextProgress = normalized(dragStartValue) + Double(gesture.translation.width / width)
+                let nextProgress = if setsValueFromPointerLocation {
+                    progress(for: gesture.location.x, width: width)
+                } else {
+                    normalized(dragStartValue) + Double(gesture.translation.width / width)
+                }
                 visualProgress = nextProgress
                 value = steppedValue(for: nextProgress.clamped(to: 0...1), step: dragStep ?? step)
             }
             .onEnded { _ in
                 guard isEnabled else { return }
+                let settledProgress = (visualProgress ?? normalized(value)).clamped(to: 0...1)
+                let dragStartProgress = normalized(dragStartValue).clamped(to: 0...1)
+
+                settlingCommittedProgress = dragStartProgress
                 isDragging = false
                 onEditingChanged(false)
 
-                let settledProgress = (visualProgress ?? normalized(value)).clamped(to: 0...1)
-                withAnimation(.interpolatingSpring(stiffness: 260, damping: 34)) {
+                withAnimation(.interpolatingSpring(stiffness: 230, damping: 22)) {
+                    settlingCommittedProgress = settledProgress
                     visualProgress = settledProgress
                 }
 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                     guard !isDragging else { return }
                     visualProgress = nil
+                    settlingCommittedProgress = nil
                 }
             }
     }
@@ -206,6 +265,10 @@ struct ElasticSlider: View {
     private func normalized(_ input: Double) -> Double {
         guard range.upperBound != range.lowerBound else { return 0 }
         return (input - range.lowerBound) / (range.upperBound - range.lowerBound)
+    }
+
+    private func progress(for x: CGFloat, width: CGFloat) -> Double {
+        Double((x / max(width, 1)).clamped(to: 0...1))
     }
 
     private func steppedValue(for progress: Double, step: Double) -> Double {
