@@ -68,9 +68,9 @@ struct TimelineSelectionSidebar: View {
                 edits.clearSelection()
             }
 
-            if edits.selectedKind != nil {
+            if edits.selectedKind != nil || edits.selectedClipIndex != nil {
                 TimelineSelectionActionButton(title: "Delete", symbolName: "trash", isDestructive: true) {
-                    edits.deleteSelection()
+                    edits.deleteSelection(duration: playback.duration)
                 }
             }
         }

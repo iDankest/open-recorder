@@ -358,7 +358,7 @@ enum TimelineEditEvent: Equatable {
     case select(TimelineRegionKind?, TimelineRegionID?)
     case selectClip(index: Int)
     case clearSelection
-    case deleteSelection
+    case deleteSelection(duration: Double?)
     case updateSpan(kind: TimelineRegionKind, id: TimelineRegionID, span: TimelineSpan, duration: Double)
     case cycleClipSpeed(index: Int)
     case cycleClipSpeedAt(currentTime: Double, duration: Double)
@@ -420,8 +420,8 @@ extension TimelineEditState {
             clearSelection()
             return []
 
-        case .deleteSelection:
-            deleteSelection()
+        case .deleteSelection(let duration):
+            deleteSelection(duration: duration)
             return []
 
         case .updateSpan(let kind, let id, let span, let duration):
@@ -573,7 +573,12 @@ extension TimelineEditState {
         selectedClipIndex = nil
     }
 
-    private mutating func deleteSelection() {
+    private mutating func deleteSelection(duration: Double? = nil) {
+        if let selectedClipIndex {
+            deleteSelectedClip(index: selectedClipIndex, duration: duration)
+            return
+        }
+
         guard let selectedKind, let selectedID else { return }
         switch selectedKind {
         case .zoom: snapshot.zoomRegions.removeAll { $0.id == selectedID }
@@ -582,6 +587,37 @@ extension TimelineEditState {
         }
         clearSelection()
         statusMessage = "Deleted \(selectedKind.title.lowercased())."
+    }
+
+    private mutating func deleteSelectedClip(index selectedClipIndex: Int, duration: Double?) {
+        guard let duration,
+              duration.isFinite,
+              duration > 0 else {
+            statusMessage = "Open a video before deleting a clip."
+            return
+        }
+
+        let segments = snapshot.clipSegments(duration: duration)
+        guard segments.indices.contains(selectedClipIndex) else {
+            clearSelection()
+            statusMessage = "Selected clip is no longer available."
+            return
+        }
+
+        let segment = segments[selectedClipIndex]
+        let deleteRegion = TimelineTrimRegion(span: segment.span.normalized(duration: duration))
+        var candidate = snapshot
+        candidate.trimRegions.append(deleteRegion)
+        candidate.trimRegions = mergedTrimRegions(candidate.trimRegions, duration: duration)
+
+        guard !TimelineExportEditPlan.build(duration: duration, edits: candidate).segments.isEmpty else {
+            statusMessage = "Cannot delete the only playable clip."
+            return
+        }
+
+        snapshot = candidate
+        clearSelection()
+        statusMessage = "Deleted clip \(segment.index + 1)."
     }
 
     private mutating func updateSpan(kind: TimelineRegionKind, id: TimelineRegionID, span: TimelineSpan, duration: Double) {
@@ -680,6 +716,35 @@ extension TimelineEditState {
         snapshot.clipSpeeds = remappedClipSpeeds(from: oldSegments, to: newSegments)
         clearSelection()
         statusMessage = "Removed split at \(formatPlaybackTime(splitTime))."
+    }
+
+    private func mergedTrimRegions(_ regions: [TimelineTrimRegion], duration: Double) -> [TimelineTrimRegion] {
+        let sorted = regions
+            .map { region in
+                var copy = region
+                copy.span = copy.span.normalized(duration: duration)
+                return copy
+            }
+            .filter { $0.span.duration > 0.001 }
+            .sorted { $0.span.start < $1.span.start }
+
+        return sorted.reduce(into: [TimelineTrimRegion]()) { result, region in
+            guard var last = result.popLast() else {
+                result.append(region)
+                return
+            }
+
+            if region.span.start <= last.span.end + 0.001 {
+                last.span = TimelineSpan(
+                    start: min(last.span.start, region.span.start),
+                    end: max(last.span.end, region.span.end)
+                ).normalized(duration: duration)
+                result.append(last)
+            } else {
+                result.append(last)
+                result.append(region)
+            }
+        }
     }
 
     private func canPlaceNonOverlapping(_ span: TimelineSpan, existing: [TimelineSpan]) -> Bool {
@@ -845,7 +910,11 @@ final class TimelineEditDriver {
     }
 
     func deleteSelection() {
-        send(.deleteSelection)
+        send(.deleteSelection(duration: nil))
+    }
+
+    func deleteSelection(duration: Double) {
+        send(.deleteSelection(duration: duration))
     }
 
     func updateSpan(kind: TimelineRegionKind, id: TimelineRegionID, span: TimelineSpan, duration: Double) {
