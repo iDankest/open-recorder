@@ -772,29 +772,13 @@ struct TimelineClipRow: View {
 }
 
 struct TimelineResizeHandle: View {
-    var style: TimelineRegionKind = .zoom
-
     var body: some View {
-        if style == .zoom {
-            Circle()
-                .fill(Color.white.opacity(0.94))
-                .frame(width: 20, height: 20)
-                .overlay {
-                    Image(systemName: "arrow.left.and.right")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(Color.black.opacity(0.82))
-                }
-                .overlay { Circle().stroke(Color.white.opacity(0.96), lineWidth: 1) }
-                .shadow(color: Color.cyan.opacity(0.32), radius: 7)
-                .shadow(color: Color.black.opacity(0.30), radius: 8, y: 3)
-        } else {
-            Circle()
-                .fill(Theme.timelineHandle)
-                .frame(width: 20, height: 20)
-                .overlay { Image(systemName: "arrow.left.and.right").font(.system(size: 8, weight: .bold)).foregroundStyle(Color.black.opacity(0.82)) }
-                .overlay { Circle().stroke(Theme.scrim, lineWidth: 1) }
-                .shadow(color: Color.black.opacity(0.24), radius: 6, y: 3)
-        }
+        Circle()
+            .fill(Theme.timelineHandle)
+            .frame(width: 20, height: 20)
+            .overlay { Image(systemName: "arrow.left.and.right").font(.system(size: 8, weight: .bold)).foregroundStyle(Color.black.opacity(0.82)) }
+            .overlay { Circle().stroke(Theme.scrim, lineWidth: 1) }
+            .shadow(color: Color.black.opacity(0.24), radius: 6, y: 3)
     }
 }
 
@@ -954,24 +938,22 @@ struct TimelineRegionItem: View {
     var isSelected: Bool
     var edits: TimelineEditDriver
     @State private var dragStartSpan: TimelineSpan?
-    @State private var isHovering = false
-    @State private var isResizing = false
 
     var body: some View {
         let startX = x(for: region.span.start)
         let itemWidth = max(1, x(for: region.span.end) - startX)
         RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(regionFill)
-            .overlay { RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(regionStroke, lineWidth: isSelected ? 1.5 : 1) }
+            .fill(kind.accent.opacity(isSelected ? 0.55 : 0.34))
+            .overlay { RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(kind.accent.opacity(isSelected ? 0.95 : 0.65), lineWidth: isSelected ? 2 : 1) }
             .overlay { regionLabel(width: itemWidth) }
             .overlay(alignment: .leading) {
-                if showsLeadingHandle && shouldShowResizeHandles {
-                    TimelineResizeHandle(style: kind).offset(x: kind == .zoom ? 0 : -9).gesture(resizeGesture(edge: .leading))
+                if showsLeadingHandle {
+                    TimelineResizeHandle().offset(x: -9).gesture(resizeGesture(edge: .leading))
                 }
             }
             .overlay(alignment: .trailing) {
-                if showsTrailingHandle && shouldShowResizeHandles {
-                    TimelineResizeHandle(style: kind).offset(x: kind == .zoom ? 0 : 9).gesture(resizeGesture(edge: .trailing))
+                if showsTrailingHandle {
+                    TimelineResizeHandle().offset(x: 9).gesture(resizeGesture(edge: .trailing))
                 }
             }
             .frame(width: itemWidth, height: TimelineMetrics.regionItemHeight)
@@ -979,40 +961,13 @@ struct TimelineRegionItem: View {
             .onTapGesture(count: 2) { performPrimaryEdit() }
             .onTapGesture { edits.select(kind, id: region.id) }
             .gesture(moveGesture())
-            .onHover { isHovering = $0 }
-            .animation(.snappy(duration: 0.14), value: shouldShowResizeHandles)
-    }
-
-    private var regionFill: some ShapeStyle {
-        if kind == .zoom {
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.00, green: 0.60, blue: 0.95).opacity(isSelected ? 0.98 : 0.88),
-                        Color(red: 0.42, green: 0.88, blue: 1.00).opacity(isSelected ? 0.94 : 0.80)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-        }
-
-        return AnyShapeStyle(kind.accent.opacity(isSelected ? 0.55 : 0.34))
-    }
-
-    private var regionStroke: Color {
-        if kind == .zoom {
-            return Color.white.opacity(isSelected ? 0.72 : 0.42)
-        }
-
-        return kind.accent.opacity(isSelected ? 0.95 : 0.65)
     }
 
     private func regionLabel(width: CGFloat) -> some View {
         HStack(spacing: 4) {
-            Text(labelText(width: width))
+            Text(region.label)
                 .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(kind == .zoom ? Color.white.opacity(0.72) : .white)
+                .foregroundStyle(.white)
                 .lineLimit(1)
 
             if region.showsAutoBadge, width > 52 {
@@ -1029,16 +984,7 @@ struct TimelineRegionItem: View {
         .frame(maxWidth: max(0, width - 8))
     }
 
-    private func labelText(width: CGFloat) -> String {
-        guard kind == .zoom else { return region.label }
-        return region.label
-    }
-
     private enum ResizeEdge { case leading, trailing }
-
-    private var shouldShowResizeHandles: Bool {
-        kind != .zoom || isHovering || isResizing
-    }
 
     private var showsLeadingHandle: Bool {
         region.span.start >= viewport.visibleStart - 0.001
@@ -1076,7 +1022,6 @@ struct TimelineRegionItem: View {
                     dragStartSpan = region.span
                     edits.select(kind, id: region.id)
                 }
-                isResizing = true
                 let base = dragStartSpan ?? region.span
                 let delta = time(forDeltaX: value.translation.width)
                 switch edge {
@@ -1089,7 +1034,6 @@ struct TimelineRegionItem: View {
             .onEnded { _ in
                 edits.endUndoTransaction()
                 dragStartSpan = nil
-                isResizing = false
             }
     }
 
