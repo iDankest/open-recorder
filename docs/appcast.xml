@@ -240,5 +240,21 @@
 ]]></description>
             <enclosure url="https://github.com/imbhargav5/open-recorder/releases/download/v0.2.28/open-recorder-macos.zip" sparkle:edSignature="smw5I7p/+FwjRWOmImOyAMgi+7T5LIjlhz1jF4qPXLQ3ojj6Q/wbCG1XWBc3DLcDeNnwzCAq8FXOoDx+eI8YCA==" length="40834996" type="application/octet-stream"/>
         </item>
+        <item>
+            <title>Version 0.2.29</title>
+            <pubDate>Wed, 27 May 2026 15:37:38 GMT</pubDate>
+            <sparkle:version>0.2.29</sparkle:version>
+            <sparkle:shortVersionString>0.2.29</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+## Commits since v0.2.28
+
+- e4007b1 Fix video compositor memory growth (#336)
+- 93d4c7e Merge pull request #334 from imbhargav5/codex/scope-recording-hotkey
+- f8a1085 Scope recording hotkey registration
+- acba52f Update appcast for v0.2.28
+]]></description>
+            <enclosure url="https://github.com/imbhargav5/open-recorder/releases/download/v0.2.29/open-recorder-macos.zip" sparkle:edSignature="0V30QMGT8skevw83FTGokJhoC4eVX2MHlEBA8eoNlNJ7GITAmu7/9VQWohn2Ca+LOezJB8rkRtYX1ceCTCobCg==" length="40845012" type="application/octet-stream"/>
+        </item>
     </channel>
 </rss>
